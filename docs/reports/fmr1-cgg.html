@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FMR1 CGG Repeat - Target Region Confirmation Report</title>
+<style>
+  :root {
+    --teal: #4a9ba0;
+    --teal-dark: #357a7f;
+    --teal-light: #d6e8e9;
+    --row-alt: #f2f8f8;
+    --warn-bg: #fff4e5;
+    --warn-border: #e0a64e;
+    --bad-bg: #fdecec;
+    --bad-border: #d56b6b;
+    --good-bg: #ecf7ec;
+    --good-border: #6bbf6b;
+    --ink: #233;
+    --muted: #6a7a7a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Segoe UI", Arial, Helvetica, sans-serif;
+    color: var(--ink);
+    margin: 0;
+    padding: 0 0 60px 0;
+    background: #fafbfb;
+    line-height: 1.55;
+  }
+  header.banner {
+    background: linear-gradient(135deg, var(--teal-dark), var(--teal));
+    color: #fff;
+    padding: 28px 40px;
+  }
+  header.banner h1 { margin: 0 0 6px 0; font-size: 24px; font-weight: 600; }
+  header.banner .sub { font-size: 14px; opacity: 0.92; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 0 40px; }
+  section { margin-top: 34px; }
+  h2 {
+    color: var(--teal-dark);
+    border-bottom: 2px solid var(--teal-light);
+    padding-bottom: 6px;
+    font-size: 19px;
+    margin-bottom: 14px;
+  }
+  h3 { color: var(--teal-dark); font-size: 15px; margin-bottom: 8px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; margin: 10px 0; }
+  th {
+    background: var(--teal);
+    color: #fff;
+    padding: 10px 12px;
+    text-align: left;
+    font-weight: 600;
+  }
+  td { padding: 9px 12px; border-bottom: 1px solid #e3eced; vertical-align: top; }
+  tr:nth-child(even) td { background: var(--row-alt); }
+  .mono { font-family: "Consolas", "Courier New", monospace; font-size: 12.5px; }
+  .verdict {
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin: 18px 0;
+    font-size: 15px;
+  }
+  .verdict.bad { background: var(--bad-bg); border-left: 6px solid var(--bad-border); }
+  .verdict.warn { background: var(--warn-bg); border-left: 6px solid var(--warn-border); }
+  .verdict.good { background: var(--good-bg); border-left: 6px solid var(--good-border); }
+  .verdict strong { font-size: 16px; }
+  .pill {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+  }
+  .pill.notcov { background: #d56b6b; color: #fff; }
+  .pill.cov { background: #6bbf6b; color: #fff; }
+  .kv { width: 100%; }
+  .kv td:first-child { width: 38%; font-weight: 600; color: var(--muted); }
+  .note { font-size: 12.5px; color: var(--muted); }
+  .schematic {
+    font-family: "Consolas","Courier New",monospace;
+    font-size: 12.5px;
+    background: #1f2b2b;
+    color: #d7e8e8;
+    padding: 18px 20px;
+    border-radius: 8px;
+    overflow-x: auto;
+    line-height: 1.7;
+  }
+  .schematic .repeat { color: #ffb86c; }
+  .schematic .target { color: #8be9a3; }
+  .schematic .gap { color: #ff7b7b; }
+  ol li, ul li { margin-bottom: 6px; }
+  footer {
+    margin-top: 46px;
+    padding-top: 16px;
+    border-top: 1px solid #e0e8e8;
+    font-size: 11.5px;
+    color: var(--muted);
+  }
+  .highlight-cell { background: #fff4e5 !important; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<header class="banner">
+  <h1>FMR1 CGG Repeat - Target Region Confirmation and Coverage Assessment</h1>
+  <div class="sub">
+    Panel design: hg38_exome_comp_spikein_v2.0.2_targets_sorted.re_annotated.bed &nbsp;|&nbsp;
+    Reference build: GRCh38 / hg38 &nbsp;|&nbsp; Report date: 2026-06-06
+  </div>
+</header>
+
+<div class="wrap">
+
+  <section>
+    <h2>1. Variant / Locus Under Review</h2>
+    <table class="kv">
+      <tr><td>Gene</td><td>FMR1 (NM_002024.5 in source report; NM_002024.6 in BED annotation)</td></tr>
+      <tr><td>Inheritance / zygosity</td><td>X-linked / hemizygous</td></tr>
+      <tr><td>Disease (OMIM)</td><td>Fragile X Syndrome; FXS [OMIM #300624]</td></tr>
+      <tr><td>Mutation type</td><td>Trinucleotide repeat expansion (CGG)n</td></tr>
+      <tr><td>Reported nomenclature</td><td>c.-129CGG (5&prime;UTR repeat locus)</td></tr>
+      <tr><td>Normal repeat range</td><td>&ge;5 to &le;44 repeats</td></tr>
+      <tr><td>Repeats detected</td><td>29 (within normal range)</td></tr>
+      <tr><td>Reported status</td><td>Normal</td></tr>
+    </table>
+    <p class="note">
+      The FMR1 (CGG)n repeat lies in the 5&prime; untranslated region / promoter of FMR1, which is
+      transcribed from the plus strand. The repeat is therefore at the low-coordinate (5&prime;) end of the gene.
+    </p>
+  </section>
+
+  <section>
+    <h2>2. Overall Verdict</h2>
+    <div class="verdict bad">
+      <strong>The FMR1 CGG repeat locus is NOT covered by this target BED.</strong><br>
+      The repeat region (GRCh38 chrX:147,912,050-147,912,110) does not overlap any interval in
+      hg38_exome_comp_spikein_v2.0.2_targets_sorted.re_annotated.bed. The nearest FMR1 target interval
+      begins at chrX:147,912,179 - approximately 69 bp downstream of the 3&prime; end of the repeat.
+    </div>
+    <div class="verdict warn">
+      <strong>Methodological note.</strong> Even if the locus were tiled, the FMR1 CGG expansion is a
+      GC-rich tandem repeat that short-read exome sequencing cannot size reliably. A result of
+      "29 repeats / Normal" is expected to originate from a dedicated assay (triplet repeat-primed PCR
+      and/or Southern blot, or a targeted repeat-genotyping workflow), not from read counting over this panel.
+    </div>
+  </section>
+
+  <section>
+    <h2>3. Repeat Locus Coordinates</h2>
+    <table>
+      <tr><th>Source / definition</th><th>Build</th><th>Coordinates (1-based)</th><th>Motif</th></tr>
+      <tr><td>FMR1 (CGG)n STR locus (ExpansionHunter / STRchive convention)</td><td>GRCh38 / hg38</td><td class="mono">chrX:147,912,050-147,912,110</td><td class="mono">CGG</td></tr>
+    </table>
+    <p class="note">
+      This is the canonical short tandem repeat locus used by repeat-genotyping callers for FMR1.
+      Coordinates are used here to test for overlap against the panel target intervals.
+    </p>
+  </section>
+
+  <section>
+    <h2>4. Nearest Target Intervals in the BED</h2>
+    <p>
+      The BED file is BED-standard (0-based, half-open start; end is exclusive). The two FMR1 intervals
+      flanking the repeat locus are shown below, with 1-based spans for direct comparison to the repeat coordinates.
+    </p>
+    <table>
+      <tr>
+        <th>BED record (0-based)</th>
+        <th>Equivalent 1-based span</th>
+        <th>Length</th>
+        <th>Relation to CGG repeat</th>
+        <th>Status</th>
+      </tr>
+      <tr class="highlight-cell">
+        <td class="mono">chrX 147912179 147912230</td>
+        <td class="mono">147,912,180-147,912,230</td>
+        <td>51 bp</td>
+        <td>Starts ~69 bp downstream (3&prime;) of repeat end (147,912,110)</td>
+        <td><span class="pill notcov">NO OVERLAP</span></td>
+      </tr>
+      <tr>
+        <td class="mono">chrX 147912727 147912772</td>
+        <td class="mono">147,912,728-147,912,772</td>
+        <td>45 bp</td>
+        <td>Further downstream</td>
+        <td><span class="pill notcov">NO OVERLAP</span></td>
+      </tr>
+    </table>
+    <p class="note">
+      A scan of all intervals on chrX between 147,911,000 and 147,913,000 returns only the two records above.
+      No target interval begins at or before 147,912,110, confirming the repeat falls entirely in an untargeted gap.
+    </p>
+  </section>
+
+  <section>
+    <h2>5. Positional Schematic (chrX, plus strand)</h2>
+    <div class="schematic">
+chrX 5&prime; ------------------------------------------------------------&gt; 3&prime;
+
+      147,912,050        147,912,110     147,912,179        147,912,230
+            |                  |               |                  |
+      <span class="repeat">[==== CGG repeat locus ====]</span><span class="gap">~~~~ 69 bp gap ~~~~</span><span class="target">[=== first FMR1 target ===]</span>
+      <span class="repeat">  (c.-129CGG, NOT tiled)   </span><span class="gap"> (no probe)      </span><span class="target">  (panel coverage begins)</span>
+    </div>
+    <p class="note">
+      Legend: orange = FMR1 CGG repeat locus (not in panel); red = untargeted gap; green = first panel target interval.
+    </p>
+  </section>
+
+  <section>
+    <h2>6. FMR1 Gene-Level Target Footprint in the Panel</h2>
+    <p>
+      For context, the panel does tile FMR1 broadly - 26 intervals annotated to the FMR1 gene symbol span the
+      coding/exonic body - but none reach the 5&prime;UTR CGG repeat. The full set of FMR1 target intervals:
+    </p>
+    <table>
+      <tr><th>#</th><th>chrX start (0-based)</th><th>chrX end</th><th>Length</th></tr>
+      <tr><td>1</td><td class="mono">147912179</td><td class="mono">147912230</td><td>51 bp</td></tr>
+      <tr><td>2</td><td class="mono">147912727</td><td class="mono">147912772</td><td>45 bp</td></tr>
+      <tr><td>3</td><td class="mono">147921931</td><td class="mono">147921985</td><td>54 bp</td></tr>
+      <tr><td>4</td><td class="mono">147921989</td><td class="mono">147921990</td><td>1 bp</td></tr>
+      <tr><td>5</td><td class="mono">147924918</td><td class="mono">147925045</td><td>127 bp</td></tr>
+      <tr><td>6</td><td class="mono">147925539</td><td class="mono">147925633</td><td>94 bp</td></tr>
+      <tr><td>7</td><td class="mono">147928321</td><td class="mono">147928393</td><td>72 bp</td></tr>
+      <tr><td>8</td><td class="mono">147928658</td><td class="mono">147928807</td><td>149 bp</td></tr>
+      <tr><td>9</td><td class="mono">147929947</td><td class="mono">147930041</td><td>94 bp</td></tr>
+      <tr><td>10</td><td class="mono">147930127</td><td class="mono">147930244</td><td>117 bp</td></tr>
+      <tr><td>11</td><td class="mono">147932424</td><td class="mono">147932595</td><td>171 bp</td></tr>
+      <tr><td>12</td><td class="mono">147932684</td><td class="mono">147932763</td><td>79 bp</td></tr>
+      <tr><td>13</td><td class="mono">147933400</td><td class="mono">147933414</td><td>14 bp</td></tr>
+      <tr><td>14</td><td class="mono">147936503</td><td class="mono">147936614</td><td>111 bp</td></tr>
+      <tr><td>15</td><td class="mono">147937465</td><td class="mono">147937600</td><td>135 bp</td></tr>
+      <tr><td>16</td><td class="mono">147938098</td><td class="mono">147938161</td><td>63 bp</td></tr>
+      <tr><td>17</td><td class="mono">147940575</td><td class="mono">147940662</td><td>87 bp</td></tr>
+      <tr><td>18</td><td class="mono">147943130</td><td class="mono">147943326</td><td>196 bp</td></tr>
+      <tr><td>19</td><td class="mono">147944868</td><td class="mono">147945051</td><td>183 bp</td></tr>
+      <tr><td>20</td><td class="mono">147945533</td><td class="mono">147945616</td><td>83 bp</td></tr>
+      <tr><td>21</td><td class="mono">147948412</td><td class="mono">147948424</td><td>12 bp</td></tr>
+      <tr><td>22</td><td class="mono">147948682</td><td class="mono">147948844</td><td>162 bp</td></tr>
+    </table>
+    <p class="note">
+      Single-base (1 bp) records at 147921989, 147928319, 147929937, 147929939, and 147945060 are
+      ClinVar-anchor annotations and are omitted from the spanning rows above for readability.
+      The lowest-coordinate FMR1 target (147,912,179) remains downstream of the repeat in every case.
+    </p>
+  </section>
+
+  <section>
+    <h2>7. Interpretation</h2>
+    <ul>
+      <li>The reported FMR1 result (c.-129CGG, 29 repeats, Normal) concerns a locus that is outside the
+          design footprint of this exome-plus-spike-in target BED.</li>
+      <li>On-target capture and per-base depth at the repeat cannot be inferred from this BED, because no
+          probe interval overlaps chrX:147,912,050-147,912,110.</li>
+      <li>The repeat is GC-rich and expansion-prone; short-read exome data is not a validated method for
+          sizing FMR1 CGG repeats regardless of tiling. The "29 / Normal" call should be traceable to a
+          dedicated repeat assay.</li>
+      <li>If a coverage claim is required for this locus, depth must be read from an alignment/coverage file
+          over the explicit interval, not assumed from panel membership.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>8. Recommended Next Steps</h2>
+    <ol>
+      <li>Confirm the assay of record for the FMR1 result. If it is TP-PCR / Southern blot or a targeted
+          repeat workflow, this exome panel is not the relevant evidence source and the "not covered"
+          finding is expected by design.</li>
+      <li>If sequencing-based confirmation is intended, extract per-base depth over
+          chrX:147,912,050-147,912,110 directly from the sample BAM/CRAM or coverage track to quantify
+          any reads actually present in the region.</li>
+      <li>If FMR1 repeat genotyping is meant to be supported by this panel, flag the design gap: the 5&prime;UTR
+          CGG locus would need to be added to the target BED, with the caveat that short-read sizing
+          remains unreliable for full expansions.</li>
+    </ol>
+  </section>
+
+  <footer>
+    Generated from hg38_exome_comp_spikein_v2.0.2_targets_sorted.re_annotated.bed on 2026-06-06.
+    Coordinates: BED records are 0-based half-open; repeat-locus and "1-based span" coordinates are 1-based inclusive.
+    FMR1 (CGG)n locus per ExpansionHunter / STRchive GRCh38 convention (chrX:147,912,050-147,912,110).
+    This document summarizes target-design overlap only and does not constitute a clinical interpretation.
+  </footer>
+
+</div>
+</body>
+</html>

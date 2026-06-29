@@ -57,6 +57,22 @@ button.ghost { background: #fff; color: var(--blue); border: 1px solid var(--blu
   border-radius: 99px; padding: 5px 12px; font-size: 12px; background: #fff; }
 .schip.on { background: #eaf3ec; border-color: #2a7a47; color: #1a6033; font-weight: bold; }
 
+/* ── Report gallery ──────────────────────────────────────────────────── */
+.rpt-section { margin-top: 28px; }
+.rpt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; margin-top: 14px; }
+.rpt-card { background: #fff; border: 1px solid #d0d5de; border-radius: 10px;
+  padding: 18px 20px; display: flex; flex-direction: column; gap: 8px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.05); transition: box-shadow .15s; }
+.rpt-card:hover { box-shadow: 0 4px 14px rgba(0,95,160,.13); border-color: var(--blue); }
+.rpt-card-icon { font-size: 22px; line-height: 1; }
+.rpt-card-title { font-size: 14px; font-weight: bold; color: var(--blue); line-height: 1.3; }
+.rpt-card-desc { font-size: 12px; color: #555; line-height: 1.5; flex: 1; }
+.rpt-card-meta { font-size: 11px; color: #888; }
+.rpt-card-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 4px; }
+.rpt-card a.btn { background: var(--blue); color: #fff; border-radius: 5px;
+  padding: 6px 14px; font-size: 12px; text-decoration: none; font-weight: bold; }
+.rpt-card a.btn:hover { background: #00497d; }
+
 /* ── Results ─────────────────────────────────────────────────────────── */
 h2 { font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: .6px;
   color: var(--blue); border-bottom: 1.5px solid var(--orange); padding-bottom: 4px; margin: 24px 0 12px; }
@@ -830,6 +846,63 @@ function render(d) {
   out.innerHTML = h;
 }
 
+// ── Report gallery (shown before first search) ────────────────────────────
+const REPORTS = [
+  {
+    icon: '🧬',
+    title: 'Twist Exome SpikeinV2 vs Agilent SureSelect',
+    desc: 'Base-level overlap, chromosome-by-chromosome breakdown and coverage comparison between the two most-used capture kits.',
+    meta: 'Generated 2026-03-25',
+    href: 'reports/twist-vs-agilent.html',
+  },
+  {
+    icon: '📊',
+    title: 'Multi-Panel BED Comparison',
+    desc: 'Six capture panels side-by-side — Twist, Agilent, Roche, Nonacus, MedGenome and Aviti — with interval overlap matrices and unique-region tables.',
+    meta: 'Generated 2026-04-09',
+    href: 'reports/multi-panel-comparison.html',
+  },
+  {
+    icon: '🔬',
+    title: 'Twist SpikeinV2 BED Analysis',
+    desc: 'Detailed interval-level analysis of the Twist Spikein v2.0.2 capture panel: size distribution, per-chromosome density and annotation summary.',
+    meta: 'Twist Spikein v2.0.2 (re-annotated)',
+    href: 'reports/twist-spikein-v2-analysis.html',
+  },
+  {
+    icon: '🩸',
+    title: 'Thrombophilia Panel Coverage',
+    desc: 'Target-region confirmation for the thrombophilia panel — interval coverage, depth tiers and clinical-variant overlap across the Spiken capture design.',
+    meta: 'Spiken panel · GRCh38',
+    href: 'reports/thrombophilia-panel.html',
+  },
+  {
+    icon: '🧪',
+    title: 'FMR1 CGG Repeat — Target Region Confirmation',
+    desc: 'Verification that the FMR1 CGG-repeat region is captured in the panel design, with interval overlap and nearest-target distance analysis.',
+    meta: 'GRCh38 · chrX',
+    href: 'reports/fmr1-cgg.html',
+  },
+];
+
+function showGallery() {
+  const cards = REPORTS.map(r =>
+    `<div class="rpt-card">
+      <div class="rpt-card-icon">${r.icon}</div>
+      <div class="rpt-card-title">${esc(r.title)}</div>
+      <div class="rpt-card-desc">${esc(r.desc)}</div>
+      <div class="rpt-card-footer">
+        <span class="rpt-card-meta">${esc(r.meta)}</span>
+        <a class="btn" href="${esc(r.href)}" target="_blank" rel="noopener">View report →</a>
+      </div>
+    </div>`).join('');
+  $('#out').innerHTML =
+    `<div class="rpt-section">
+      <h2>Panel &amp; BED Comparison Reports</h2>
+      <div class="rpt-grid">${cards}</div>
+    </div>`;
+}
+
 // ── Main query handler ────────────────────────────────────────────────────
 async function run() {
   const q = $('#q').value.trim();
@@ -918,7 +991,15 @@ async function init() {
         $('#q').value = c.textContent;
         document.getElementById('qform').requestSubmit();
       }));
+    // Show report gallery in the empty results area
+    showGallery();
+
     $('#q').focus();
+
+    // Restore gallery when input is cleared
+    $('#q').addEventListener('input', () => {
+      if (!$('#q').value.trim() && !lastResult) showGallery();
+    });
 
   } catch(e) {
     showLoadError('Failed to load: ' + e.message);

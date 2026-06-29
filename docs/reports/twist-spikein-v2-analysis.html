@@ -1,0 +1,288 @@
+
+<!DOCTYPE html>
+<html><head><style>
+    body { font-family: 'Segoe UI', Arial, sans-serif; margin: 40px; background: #f9f9f9; }
+    .container { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    h1 { color: #1a3a5f; border-bottom: 2px solid #1a3a5f; padding-bottom: 10px; }
+    .moto { background: #fff3cd; padding: 15px; border-left: 5px solid #ffc107; font-weight: bold; font-size: 1.1em; margin: 20px 0; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { padding: 10px; border: 1px solid #ddd; text-align: right; }
+    th { background: #1a3a5f; color: white; text-align: center; }
+    tr:nth-child(even) { background: #f2f2f2; }
+    .highlight { background: #eef6ff; font-weight: bold; }
+</style></head><body><div class="container">
+    <h1>Twist Spike-in Panel: Technical Optimization Report</h1>
+    <div class="moto">"Since it is a spike-in panel, it requires titration optimization to ensure balanced coverage."</div>
+    
+    <h2>1. Wet Lab Optimization Metrics</h2>
+    <p>These ratios define the physical target distribution within the pool.</p>
+    <table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th>Metric</th>
+      <th>Value</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Total WES Target Territory</td>
+      <td>37,318,478 bp</td>
+    </tr>
+    <tr>
+      <td>Total CNV Spike-in Territory</td>
+      <td>134,655 bp</td>
+    </tr>
+    <tr>
+      <td>Titration Molar Ratio (WES:CNV)</td>
+      <td>1 : 0.00361</td>
+    </tr>
+    <tr>
+      <td>Expected Read Breakdown (per 100M reads)</td>
+      <td>Exome: 99.64M | Spike-in: 0.36M</td>
+    </tr>
+  </tbody>
+</table>
+
+    <h2>2. Territorial Accuracy vs Callable Genome</h2>
+    <p>Coverage percentages below are calculated against the <strong>Callable Genome</strong> (Total Genome minus N-gaps/Centromeres).</p>
+    <table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th>Chromosome</th>
+      <th>Callable Genome (bp)</th>
+      <th>Total Exome+Spike-in (bp)</th>
+      <th>Enrichment (%)</th>
+      <th>WES Base Allocation</th>
+      <th>CNV Spike-in Allocation</th>
+      <th>CNV Spike-in Count</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>chr1</td>
+      <td>230486321</td>
+      <td>3762272</td>
+      <td>1.6323</td>
+      <td>3753231</td>
+      <td>9041</td>
+      <td>122</td>
+    </tr>
+    <tr>
+      <td>chr2</td>
+      <td>240551141</td>
+      <td>2749706</td>
+      <td>1.1431</td>
+      <td>2734847</td>
+      <td>14859</td>
+      <td>173</td>
+    </tr>
+    <tr>
+      <td>chr3</td>
+      <td>198100344</td>
+      <td>2112850</td>
+      <td>1.0666</td>
+      <td>2106486</td>
+      <td>6364</td>
+      <td>96</td>
+    </tr>
+    <tr>
+      <td>chr4</td>
+      <td>189752967</td>
+      <td>1470598</td>
+      <td>0.7750</td>
+      <td>1467145</td>
+      <td>3453</td>
+      <td>59</td>
+    </tr>
+    <tr>
+      <td>chr5</td>
+      <td>181265978</td>
+      <td>1701773</td>
+      <td>0.9388</td>
+      <td>1697620</td>
+      <td>4153</td>
+      <td>64</td>
+    </tr>
+    <tr>
+      <td>chr6</td>
+      <td>170078724</td>
+      <td>1877427</td>
+      <td>1.1039</td>
+      <td>1871718</td>
+      <td>5709</td>
+      <td>96</td>
+    </tr>
+    <tr>
+      <td>chr7</td>
+      <td>158970635</td>
+      <td>1782545</td>
+      <td>1.1213</td>
+      <td>1774581</td>
+      <td>7964</td>
+      <td>102</td>
+    </tr>
+    <tr>
+      <td>chr8</td>
+      <td>144768636</td>
+      <td>1257947</td>
+      <td>0.8689</td>
+      <td>1253129</td>
+      <td>4818</td>
+      <td>61</td>
+    </tr>
+    <tr>
+      <td>chr9</td>
+      <td>121790653</td>
+      <td>1528882</td>
+      <td>1.2553</td>
+      <td>1523935</td>
+      <td>4947</td>
+      <td>76</td>
+    </tr>
+    <tr>
+      <td>chr10</td>
+      <td>133263406</td>
+      <td>1459448</td>
+      <td>1.0952</td>
+      <td>1449486</td>
+      <td>9962</td>
+      <td>99</td>
+    </tr>
+    <tr>
+      <td>chr11</td>
+      <td>134534542</td>
+      <td>2213659</td>
+      <td>1.6454</td>
+      <td>2207101</td>
+      <td>6558</td>
+      <td>80</td>
+    </tr>
+    <tr>
+      <td>chr12</td>
+      <td>133138721</td>
+      <td>1956099</td>
+      <td>1.4692</td>
+      <td>1950040</td>
+      <td>6059</td>
+      <td>71</td>
+    </tr>
+    <tr>
+      <td>chr13</td>
+      <td>97983128</td>
+      <td>688578</td>
+      <td>0.7028</td>
+      <td>684354</td>
+      <td>4224</td>
+      <td>34</td>
+    </tr>
+    <tr>
+      <td>chr14</td>
+      <td>90568149</td>
+      <td>1209086</td>
+      <td>1.3350</td>
+      <td>1206512</td>
+      <td>2574</td>
+      <td>34</td>
+    </tr>
+    <tr>
+      <td>chr15</td>
+      <td>84641628</td>
+      <td>1290793</td>
+      <td>1.5250</td>
+      <td>1288644</td>
+      <td>2149</td>
+      <td>43</td>
+    </tr>
+    <tr>
+      <td>chr16</td>
+      <td>81806444</td>
+      <td>1609676</td>
+      <td>1.9677</td>
+      <td>1600649</td>
+      <td>9027</td>
+      <td>67</td>
+    </tr>
+    <tr>
+      <td>chr17</td>
+      <td>82920716</td>
+      <td>2163946</td>
+      <td>2.6097</td>
+      <td>2155617</td>
+      <td>8329</td>
+      <td>79</td>
+    </tr>
+    <tr>
+      <td>chr18</td>
+      <td>80091350</td>
+      <td>590132</td>
+      <td>0.7368</td>
+      <td>588050</td>
+      <td>2082</td>
+      <td>22</td>
+    </tr>
+    <tr>
+      <td>chr19</td>
+      <td>58440758</td>
+      <td>2445138</td>
+      <td>4.1840</td>
+      <td>2437770</td>
+      <td>7368</td>
+      <td>70</td>
+    </tr>
+    <tr>
+      <td>chr20</td>
+      <td>63947116</td>
+      <td>892171</td>
+      <td>1.3952</td>
+      <td>888306</td>
+      <td>3865</td>
+      <td>41</td>
+    </tr>
+    <tr>
+      <td>chr21</td>
+      <td>40088683</td>
+      <td>385455</td>
+      <td>0.9615</td>
+      <td>382284</td>
+      <td>3171</td>
+      <td>20</td>
+    </tr>
+    <tr>
+      <td>chr22</td>
+      <td>39159782</td>
+      <td>802656</td>
+      <td>2.0497</td>
+      <td>797982</td>
+      <td>4674</td>
+      <td>29</td>
+    </tr>
+    <tr>
+      <td>chrX</td>
+      <td>154894234</td>
+      <td>1401960</td>
+      <td>0.9051</td>
+      <td>1399081</td>
+      <td>2879</td>
+      <td>72</td>
+    </tr>
+    <tr>
+      <td>chrY</td>
+      <td>26415048</td>
+      <td>100336</td>
+      <td>0.3798</td>
+      <td>99910</td>
+      <td>426</td>
+      <td>5</td>
+    </tr>
+    <tr>
+      <td>chrM</td>
+      <td>16569</td>
+      <td>0</td>
+      <td>0.0000</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+  </tbody>
+</table>
+</div></body></html>

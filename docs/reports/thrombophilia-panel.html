@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Thrombophilia Panel — Spiken Coverage Report</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; font-size: 12px; color: #222; background: #f5f6f8; }
+
+  /* Page wrapper */
+  .page { max-width: 1300px; margin: 0 auto; padding: 28px 36px 48px; }
+
+  /* Header */
+  .report-header { background: #1e3560; color: #fff; border-radius: 6px 6px 0 0; padding: 20px 26px 16px; margin-bottom: 0; }
+  .report-header h1 { font-size: 16px; font-weight: bold; }
+  .report-header .meta { font-size: 11px; color: #b0c4de; margin-top: 6px; display: flex; flex-wrap: wrap; gap: 18px; }
+
+  /* Section title */
+  h2 { font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.6px;
+       color: #1e3560; border-bottom: 1.5px solid #1e3560; padding-bottom: 4px; margin: 22px 0 12px; }
+
+  /* Summary bar */
+  .summary-bar { display: flex; border: 1px solid #d0d5de; border-radius: 0 0 6px 6px; margin-bottom: 22px; background: #fff; overflow: hidden; }
+  .s-cell { flex: 1; padding: 12px 16px; border-right: 1px solid #d0d5de; }
+  .s-cell:last-child { border-right: none; }
+  .s-cell .val { font-size: 22px; font-weight: bold; }
+  .s-cell .lbl { font-size: 10px; color: #666; margin-top: 2px; }
+  .val-total  { color: #1e3560; }
+  .val-green  { color: #1a6033; }
+  .val-red    { color: #8b1a1a; }
+
+  /* Progress bar */
+  .prog-wrap { background: #fff; border: 1px solid #d0d5de; border-radius: 6px; padding: 14px 18px; margin-bottom: 22px; }
+  .prog-label { font-size: 12px; font-weight: bold; color: #1e3560; margin-bottom: 6px; }
+  .prog-outer { height: 9px; background: #e4e8f0; border-radius: 99px; overflow: hidden; }
+  .prog-fill  { height: 100%; width: 69.2%; background: #2a7a47; border-radius: 99px; }
+  .prog-note  { font-size: 10px; color: #777; margin-top: 6px; }
+
+  /* Main table */
+  .table-wrap { background: #fff; border: 1px solid #d0d5de; border-radius: 6px; overflow: hidden; margin-bottom: 22px; }
+  table { width: 100%; border-collapse: collapse; }
+  thead tr { background: #1e3560; }
+  thead th { color: #fff; padding: 8px 10px; font-size: 10px; font-weight: bold; text-align: left; border-right: 1px solid #2d4a7a; white-space: nowrap; }
+  thead th:last-child { border-right: none; }
+  tbody tr { border-bottom: 1px solid #e4e8f0; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:nth-child(even) { background: #f8f9fb; }
+  tbody tr:hover { background: #eef2fa; }
+  tbody td { padding: 7px 10px; font-size: 11px; vertical-align: top; border-right: 1px solid #e4e8f0; }
+  tbody td:last-child { border-right: none; }
+
+  /* Row accents */
+  tr.r-cov   td:first-child { border-left: 3px solid #2a7a47; }
+  tr.r-nocov td:first-child { border-left: 3px solid #a02020; }
+
+  .gene { font-weight: bold; color: #1e3560; font-size: 12px; }
+  .mono { font-family: monospace; font-size: 10px; color: #444; }
+  .cov-yes { font-weight: bold; color: #1a6033; }
+  .cov-no  { font-weight: bold; color: #8b1a1a; }
+  .cov-sub { font-size: 9px; color: #777; display: block; margin-top: 2px; font-weight: normal; }
+
+  /* Region pill */
+  .pill { display: inline-block; font-size: 9px; font-weight: bold; text-transform: uppercase;
+          padding: 1px 6px; border-radius: 2px; border: 1px solid; }
+  .pill-ex  { color: #1a6033; border-color: #9ecfb0; background: #edf7f1; }
+  .pill-int { color: #2c3e90; border-color: #b0bce8; background: #eef0fa; }
+  .pill-pr  { color: #8b1a1a; border-color: #e0a0a0; background: #fdf0f0; }
+  .pill-utr { color: #7a5000; border-color: #e0c070; background: #fdf8ec; }
+
+  /* Source list */
+  .src { list-style: none; padding: 0; margin: 0; }
+  .src li { font-family: monospace; font-size: 10px; color: #444; margin-bottom: 1px; }
+  .src a { color: #1e5090; text-decoration: none; }
+  .src a:hover { text-decoration: underline; }
+
+  /* Notes */
+  .note-card { background: #fff; border: 1px solid #d0d5de; border-radius: 6px; padding: 14px 18px; margin-bottom: 22px; }
+  .note-item { border-left: 3px solid #bbc5d8; padding: 8px 12px; margin-bottom: 10px; background: #f8f9fb; border-radius: 0 4px 4px 0; font-size: 11px; line-height: 1.7; }
+  .note-item:last-child { margin-bottom: 0; }
+  .note-item b { color: #1e3560; }
+
+  /* Footer */
+  .footer { font-size: 10px; color: #888; border-top: 1px solid #d0d5de; padding-top: 12px; margin-top: 8px; line-height: 1.8; }
+</style>
+</head>
+<body>
+<div class="page">
+
+<!-- HEADER -->
+<div class="report-header">
+  <h1>Thrombophilia &amp; Cardiovascular Risk Strip Panel — Spiken Coverage Report</h1>
+  <div class="meta">
+    <span><b>Panel:</b> hg38_exome_comp_spikein_v2</span>
+    <span><b>Reference:</b> GRCh38 / hg38</span>
+    <span><b>Tool:</b> bedtools intersect v2.30.0</span>
+    <span><b>Assay:</b> Reverse Line-Probe Hybridization (26-line)</span>
+    <span><b>Date:</b> 2026-06-15</span>
+  </div>
+</div>
+
+<!-- SUMMARY BAR (attached to header) -->
+<div class="summary-bar">
+  <div class="s-cell"><div class="val val-total">13</div><div class="lbl">Variants assessed</div></div>
+  <div class="s-cell"><div class="val val-green">9</div><div class="lbl">Covered by Spiken</div></div>
+  <div class="s-cell"><div class="val val-red">4</div><div class="lbl">Not covered</div></div>
+  <div class="s-cell"><div class="val val-total">69.2%</div><div class="lbl">Coverage rate</div></div>
+  <div class="s-cell"><div class="val val-total">10</div><div class="lbl">Genes / 7 chromosomes</div></div>
+</div>
+
+<!-- PROGRESS -->
+<div class="prog-wrap">
+  <div class="prog-label">Spiken coverage — 9 of 13 variants (69.2%)</div>
+  <div class="prog-outer"><div class="prog-fill"></div></div>
+  <div class="prog-note">
+    <b>Covered (9):</b> FV H1299R &middot; FXIII V34L &middot; HPA1 a/b &middot; MTHFR C677T &middot; MTHFR A1298C &middot; ACE I/D &middot; ApoB R3500Q &middot; ApoE codon 112 &middot; ApoE codon 158 &nbsp;&nbsp;
+    <b>Not covered (4):</b> FV Leiden &middot; Prothrombin G20210A &middot; FGB &minus;455 &middot; PAI-1 4G/5G
+  </div>
+</div>
+
+<!-- VARIANT TABLE -->
+<h2>Variant Details and Spiken Coverage</h2>
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr>
+      <th>Strip</th><th>Gene</th><th>Variant</th><th>rs ID</th>
+      <th>GRCh38 Position</th><th>cDNA / Protein</th><th>Region</th>
+      <th>Sources</th><th>Spiken Coverage</th><th>Clinical Note</th>
+    </tr>
+  </thead>
+  <tbody>
+
+    <tr class="r-nocov">
+      <td style="color:#aaa;text-align:center;">1–2</td>
+      <td><span class="gene">F5</span></td>
+      <td>Factor V Leiden (G1691A)</td>
+      <td><a href="https://www.ncbi.nlm.nih.gov/snp/rs6025" target="_blank">rs6025</a></td>
+      <td class="mono">chr1:169,519,049<br>C&gt;T</td>
+      <td class="mono">c.1601G&gt;A<br>p.Arg534Gln</td>
+      <td><span class="pill pill-ex">Exonic</span></td>
+      <td><ul class="src">
+        <li><a href="https://www.ncbi.nlm.nih.gov/snp/rs6025" target="_blank">dbSNP rs6025</a></li>
+        <li><a href="https://www.ncbi.nlm.nih.gov/nuccore/NM_000130.4" target="_blank">NM_000130.4 (F5)</a></li>
+        <li><a href="https://www.ncbi.nlm.nih.gov/clinvar/variation/2259/" target="_blank">ClinVar VCV000002259</a></li>
+        <li>No Spiken interval at position</li>
+      </ul></td>
+      <td><span class="cov-no">Not covered</span><span class="cov-sub">Probe gap ~486 bp; strip-assay required</span></td>
+      <td>Pathogenic. DVT/PE risk ×3–8. APC resistance.</td>
+    </tr>
+
+    <tr class="r-cov">
+      <td style="color:#aaa;text-align:center;">3–4</td>
+      <td><span class="gene">F5</span></td>
+      <td>Factor V H1299R (R2)</td>
+      <td><a href="https://www.ncbi.nlm.nih.gov/snp/rs1800595" target="_blank">rs1800595</a></td>
+      <td class="mono">chr1:169,549,811<br>T&gt;C</td>
+      <td class="mono">c.3980A&gt;G<br>p.His1299Arg</td>
+      <td><span class="pill pill-ex">Exonic</span></td>
+      <td><ul class="src">
+        <li><a href="https://www.ncbi.nlm.nih.gov/snp/rs1800595" target="_blank">dbSNP rs1800595</a></li>
+        <li><a href="https://www.ncbi.nlm.nih.gov/nuccore/NM_000130.5" target="_blank">NM_000130.5 (F5)</a></li>
+        <li><a href="https://www.ncbi.nlm.nih.gov/clinvar/variation/642/" target="_blank">ClinVar VCV000000642</a></li>
+        <li>Spiken: chr1:169,549,800–169,550,015</li>
+      </ul></td>
+      <td><span class="cov-yes">Covered</span></td>
+      <td>Likely pathogenic. Mild APC resistance; synergistic with Leiden.</td>
+    </tr>
+
+    <tr class="r-nocov">
+      <td style="color:#aaa;text-align:center;">5–6</td>
+      <td><span class="gene">F2</span></td>
+      <td>Prothrombin G20210A</td>
+      <td><a href="https://www.ncbi.nlm.nih.gov/snp/rs1799963" target="_blank">rs1799963</a></td>
+      <td class="mono">chr11:46,761,055<br>G&gt;A</td>
+      <td class="mono">c.*97G&gt;A<br>3′ UTR</td>
+      <td><span class="pill pill-utr">3′ UTR</span></td>
+      <td><ul class="src">
+        <li><a href="https://www.ncbi.nlm.nih.gov/snp/rs1799963" target="_blank">dbSNP rs1799963</a></li>
+        <li><a href="https://www.ncbi.nlm.nih.gov/nuccore/NM_000506.4" target="_blank">NM_000506.4 (F2)</a></li>
+        <li><a href="https://www.ncbi.nlm.nih.gov/clinvar/variation/2260/" target="_blank">ClinVar VCV000002260</a></li>
+        <li>No Spiken interval (3′UTR excluded)</li>
+      </ul></td>
+      <td><span class="cov-no">Not covered</span><span class="cov-sub">3′UTR excluded from exome capture</span></td>
+      <td>Pathogenic. DVT/PE risk ×2–4. Elevated prothrombin.</td>
+    </tr>
+
+    <tr class="r-cov">
+      <td style="color:#aaa;text-align:center;">7–8</td>
+      <td><span class="gene">F13A1</span></td>
+      <td>Factor XIII V34L</td>
+      <td><a href="https://www.ncbi.nlm.nih.gov/snp/rs5985" target="_blank">rs5985</a></td>
+      <td class="mono">chr6:6,248,384<br>G&gt;T</td>
+      <td class="mono">c.103G&gt;T<br>p.Val34Leu</td>
+      <td><span class="pill pill-ex">Exonic</span></td>
+      <td><ul class="src">
+        <li><a href="https://www.ncbi.nlm.nih.gov/snp/rs5985" target="_blank">dbSNP rs5985</a></li>
+        <li><a href="https://www.ncbi.nlm.nih.gov/nuccore/NM_000129.4" target="_blank">NM_000129.4 (F13A1)</a></li>
+        <li><a href="https://www.ncbi.nlm.nih.gov/clinvar/variation/16537/" target="_blank">ClinVar VCV000016537</a></li>
+        <li>Spiken: chr6:6,248,311–6,248,420</li>
+      </ul></td>
+      <td><span class="cov-yes">Covered</span></td>
+      <td>Risk modifier. Altered fibrin clot cross-linking.</td>
+    </tr>
+
+    <tr class="r-nocov">
+      <td style="color:#aaa;text-align:center;">9–10</td>
+      <td><span class="gene">FGB</span></td>
+      <td>β-Fibrinogen −455 G&gt;A</td>
+      <td><a href="https://www.ncbi.nlm.nih.gov/snp/rs1800790" target="_blank">rs1800790</a></td>
+      <td class="mono">chr4:154,564,532<br>C&gt;T</td>
+      <td class="mono">c.−455G&gt;A<br>Promoter</td>
+      <td><span class="pill pill-pr">Promoter</span></td>
+      <td><ul class="src">
+        <li><a href="https://www.ncbi.nlm.nih.gov/snp/rs1800790" target="_blank">dbSNP rs1800790</a></li>
+        <li><a href="https://www.ncbi.nlm.nih.gov/nuccore/NM_005141.4" target="_blank">NM_005141.4 (FGB)</a></li>
+        <li>No Spiken interval (promoter excluded)</li>
+      </ul></td>
+      <td><span class="cov-no">Not covered</span><span class="cov-sub">Promoter excluded from exome capture</span></td>
+      <td>Risk modifier. Elevated fibrinogen; thrombosis and MI risk.</td>
+    </tr>
+
+    <tr class="r-nocov">
+      <td style="color:#aaa;text-align:center;">11–12</td>
+      <td><span class="gene">SERPINE1</span></td>
+      <td>PAI-1 4G/5G (−675)</td>
+      <td><a href="https://www.ncbi.nlm.nih.gov/snp/rs1799889" target="_blank">rs1799889</a></td>
+      <td class="mono">chr7:101,127,164<br>ins/del G</td>
+      <td class="mono">c.−820_819insG<br>Promoter indel</td>
+      <td><span class="pill pill-pr">Promoter</span></td>
+      <td><ul class="src">
+        <li><a href="https://www.ncbi.nlm.nih.gov/snp/rs1799889" target="_blank">dbSNP rs1799889</a></li>
+        <li><a href="https://www.ncbi.nlm.nih.gov/nuccore/NM_000602.4" target="_blank">NM_000602.4 (SERPINE1)</a></li>
+        <li>No Spiken interval (promoter homopolymer)</li>
+      </ul></td>
+      <td><span class="cov-no">Not covered</span><span class="cov-sub">Promoter homopolymer indel; strip-assay required</span></td>
+      <td>Risk modifier. 4G allele: elevated PAI-1; impaired fibrinolysis.</td>
+    </tr>
+
+    <tr class="r-cov">
+      <td style="color:#aaa;text-align:center;">13–14</td>
+      <td><span class="gene">ITGB3</span></td>
+      <td>HPA1 a/b (PlA1/PlA2)</td>
+      <td><a href="https://www.ncbi.nlm.nih.gov/snp/rs5918" target="_blank">rs5918</a></td>
+      <td class="mono">chr17:47,253,909<br>T&gt;C</td>
+      <td class="mono">c.176T&gt;C<br>p.Leu33Pro</td>
+      <td><span class="pill pill-ex">Exonic</span></td>
+      <td><ul class="src">
+        <li><a href="https://www.ncbi.nlm.nih.gov/snp/rs5918" target="_blank">dbSNP rs5918</a></li>
+        <li><a href="https://www.ncbi.nlm.nih.gov/nuccore/NM_000212.3" target="_blank">NM_000212.3 (ITGB3)</a></li>
+        <li><a href="https://www.ncbi.nlm.nih.gov/clinvar/variation/323863/" target="_blank">ClinVar VCV000323863</a></li>
+        <li>Spiken: chr17:47,253,861–47,253,941</li>
+      </ul></td>
+      <td><span class="cov-yes">Covered</span></td>
+      <td>Risk modifier. Platelet antigen; neonatal alloimmune thrombocytopenia.</td>
+    </tr>
+
+    <tr class="r-cov">
+      <td style="color:#aaa;text-align:center;">15–16</td>
+      <td><span class="gene">MTHFR</span></td>
+      <td>MTHFR C677T</td>
+      <td><a href="https://www.ncbi.nlm.nih.gov/snp/rs1801133" target="_blank">rs1801133</a></td>
+      <td class="mono">chr1:11,796,321<br>G&gt;A</td>
+      <td class="mono">c.665C&gt;T<br>p.Ala222Val</td>
+      <td><span class="pill pill-ex">Exonic</span></td>
+      <td><ul class="src">
+        <li><a href="https://www.ncbi.nlm.nih.gov/snp/rs1801133" target="_blank">dbSNP rs1801133</a></li>
+        <li><a href="https://www.ncbi.nlm.nih.gov/nuccore/NM_005957.5" target="_blank">NM_005957.5 (MTHFR)</a></li>
+        <li><a href="https://www.ncbi.nlm.nih.gov/clinvar/variation/3520/" target="_blank">ClinVar VCV000003520</a></li>
+        <li>Spiken: chr1:11,796,204–11,796,399</li>
+      </ul></td>
+      <td><span class="cov-yes">Covered</span></td>
+      <td>Risk modifier. Thermolabile MTHFR; hyperhomocysteinemia.</td>
+    </tr>
+
+    <tr class="r-cov">
+      <td style="color:#aaa;text-align:center;">17–18</td>
+      <td><span class="gene">MTHFR</span></td>
+      <td>MTHFR A1298C</td>
+      <td><a href="https://www.ncbi.nlm.nih.gov/snp/rs1801131" target="_blank">rs1801131</a></td>
+      <td class="mono">chr1:11,794,419<br>T&gt;G</td>
+      <td class="mono">c.1286A&gt;C<br>p.Glu429Ala</td>
+      <td><span class="pill pill-ex">Exonic</span></td>
+      <td><ul class="src">
+        <li><a href="https://www.ncbi.nlm.nih.gov/snp/rs1801131" target="_blank">dbSNP rs1801131</a></li>
+        <li><a href="https://www.ncbi.nlm.nih.gov/nuccore/NM_005957.5" target="_blank">NM_005957.5 (MTHFR)</a></li>
+        <li><a href="https://www.ncbi.nlm.nih.gov/clinvar/variation/3521/" target="_blank">ClinVar VCV000003521</a></li>
+        <li>Spiken: chr1:11,794,357–11,794,539</li>
+      </ul></td>
+      <td><span class="cov-yes">Covered</span></td>
+      <td>Risk modifier. Mild MTHFR reduction; compound effect with C677T.</td>
+    </tr>
+
+    <tr class="r-cov">
+      <td style="color:#aaa;text-align:center;">19–20</td>
+      <td><span class="gene">ACE</span></td>
+      <td>ACE Insertion/Deletion</td>
+      <td><a href="https://www.ncbi.nlm.nih.gov/snp/rs4646994" target="_blank">rs4646994</a></td>
+      <td class="mono">chr17:63,488,530<br>287 bp Alu ins/del</td>
+      <td class="mono">c.2306-105_2306-104ins<br>Intron 16</td>
+      <td><span class="pill pill-int">Intronic</span></td>
+      <td><ul class="src">
+        <li><a href="https://www.ncbi.nlm.nih.gov/snp/rs4646994" target="_blank">dbSNP rs4646994</a></li>
+        <li><a href="https://www.ncbi.nlm.nih.gov/nuccore/NM_000789.4" target="_blank">NM_000789.4 (ACE)</a></li>
+        <li><a href="https://www.ncbi.nlm.nih.gov/clinvar/variation/375659/" target="_blank">ClinVar VCV000375659</a></li>
+        <li>Spiken: chr17:63,488,528–63,488,530 (2 bp spike-in)</li>
+      </ul></td>
+      <td><span class="cov-yes">Covered</span><span class="cov-sub">Spike-in targeted (2 bp interval)</span></td>
+      <td>Risk modifier. DD genotype: elevated ACE activity; cardiovascular risk.</td>
+    </tr>
+
+    <tr class="r-cov">
+      <td style="color:#aaa;text-align:center;">21–22</td>
+      <td><span class="gene">APOB</span></td>
+      <td>Apo B R3500Q</td>
+      <td><a href="https://www.ncbi.nlm.nih.gov/snp/rs5742904" target="_blank">rs5742904</a></td>
+      <td class="mono">chr2:21,043,733<br>G&gt;A</td>
+      <td class="mono">c.10580G&gt;A<br>p.Arg3527Gln</td>
+      <td><span class="pill pill-ex">Exonic</span></td>
+      <td><ul class="src">
+        <li><a href="https://www.ncbi.nlm.nih.gov/snp/rs5742904" target="_blank">dbSNP rs5742904</a></li>
+        <li><a href="https://www.ncbi.nlm.nih.gov/nuccore/NM_000384.2" target="_blank">NM_000384.2 (APOB)</a></li>
+        <li><a href="https://www.ncbi.nlm.nih.gov/clinvar/variation/265873/" target="_blank">ClinVar VCV000265873</a></li>
+        <li>Spiken: chr2:21,043,732–21,043,733 (1 bp spike-in)</li>
+      </ul></td>
+      <td><span class="cov-yes">Covered</span><span class="cov-sub">Spike-in targeted (1 bp interval)</span></td>
+      <td>Pathogenic. Familial defective ApoB-100; elevated LDL.</td>
+    </tr>
+
+    <tr class="r-cov">
+      <td style="color:#aaa;text-align:center;">23–24</td>
+      <td><span class="gene">APOE</span></td>
+      <td>Apo E Codon 112 (ε4 determinant)</td>
+      <td><a href="https://www.ncbi.nlm.nih.gov/snp/rs429358" target="_blank">rs429358</a></td>
+      <td class="mono">chr19:44,908,684<br>T&gt;C</td>
+      <td class="mono">c.388T&gt;C<br>p.Cys112Arg</td>
+      <td><span class="pill pill-ex">Exonic</span></td>
+      <td><ul class="src">
+        <li><a href="https://www.ncbi.nlm.nih.gov/snp/rs429358" target="_blank">dbSNP rs429358</a></li>
+        <li><a href="https://www.ncbi.nlm.nih.gov/nuccore/NM_000041.4" target="_blank">NM_000041.4 (APOE)</a></li>
+        <li><a href="https://www.ncbi.nlm.nih.gov/clinvar/variation/17865/" target="_blank">ClinVar VCV000017865</a></li>
+        <li>Spiken: chr19:44,908,532–44,909,250</li>
+      </ul></td>
+      <td><span class="cov-yes">Covered</span></td>
+      <td>Risk modifier. Arg112 defines ε4; elevated CVD and Alzheimer risk.</td>
+    </tr>
+
+    <tr class="r-cov">
+      <td style="color:#aaa;text-align:center;">25–26</td>
+      <td><span class="gene">APOE</span></td>
+      <td>Apo E Codon 158 (ε2 determinant)</td>
+      <td><a href="https://www.ncbi.nlm.nih.gov/snp/rs7412" target="_blank">rs7412</a></td>
+      <td class="mono">chr19:44,908,822<br>C&gt;T</td>
+      <td class="mono">c.526C&gt;T<br>p.Arg158Cys</td>
+      <td><span class="pill pill-ex">Exonic</span></td>
+      <td><ul class="src">
+        <li><a href="https://www.ncbi.nlm.nih.gov/snp/rs7412" target="_blank">dbSNP rs7412</a></li>
+        <li><a href="https://www.ncbi.nlm.nih.gov/nuccore/NM_000041.4" target="_blank">NM_000041.4 (APOE)</a></li>
+        <li><a href="https://www.ncbi.nlm.nih.gov/clinvar/variation/88639/" target="_blank">ClinVar VCV000088639</a></li>
+        <li>Spiken: chr19:44,908,532–44,909,250</li>
+      </ul></td>
+      <td><span class="cov-yes">Covered</span></td>
+      <td>Risk modifier. Cys158 defines ε2; reduced LDL-C; type III hyperlipoproteinemia.</td>
+    </tr>
+
+  </tbody>
+</table>
+</div>
+
+<!-- NOTES -->
+<h2>Notes on Variants Not Covered by Spiken</h2>
+<div class="note-card">
+  <div class="note-item">
+    <b>Factor V Leiden / rs6025 (chr1:169,519,049)</b><br>
+    Pathogenic missense in F5 exon 10 (NM_000130.4:c.1601G&gt;A; ClinVar VCV000002259). Falls in a ~1,947 bp inter-probe gap; nearest Spiken probe ends at chr1:169,518,563, next starts at chr1:169,520,512 (~486 bp from the variant). Gap is consistent across all standard exome panels. Requires allele-specific PCR or strip-assay for reliable detection.
+  </div>
+  <div class="note-item">
+    <b>Prothrombin G20210A / rs1799963 (chr11:46,761,055)</b><br>
+    Located 97 bp downstream of the F2 stop codon in the 3′ UTR (NM_000506.4:c.*97G&gt;A; ClinVar VCV000002260). Exome capture excludes UTR sequences by design. Requires UTR-targeted enrichment or whole-genome sequencing.
+  </div>
+  <div class="note-item">
+    <b>FGB −455 G&gt;A / rs1800790 (chr4:154,564,532)</b><br>
+    Situated 455 bp upstream of the FGB transcription start site (NM_005141.4). First FGB exon interval in the Spiken BED begins ~1,261 bp downstream. Promoter variants require whole-genome sequencing or targeted amplicon capture.
+  </div>
+  <div class="note-item">
+    <b>PAI-1 4G/5G / rs1799889 (chr7:101,127,164)</b><br>
+    Single-guanine insertion/deletion at −675 of the SERPINE1 promoter (NM_000602.4). Two independent challenges: (1) promoter location outside exome capture footprint; (2) guanine homopolymer context causes polymerase slippage artefacts making short-read NGS genotyping unreliable. Allele-specific PCR or strip-assay is the recommended detection method.
+  </div>
+</div>
+
+<!-- APOE -->
+<h2>ApoE Genotype Interpretation</h2>
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr>
+      <th>Codon 112 — rs429358</th>
+      <th>Codon 158 — rs7412</th>
+      <th>APOE Allele</th>
+      <th>Clinical Implication</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="mono">TGC (Cys)</td><td class="mono">TGC (Cys)</td>
+      <td><b>ε2</b></td>
+      <td>Reduced LDL-C; generally cardioprotective. ε2/ε2 homozygotes at risk of type III hyperlipoproteinemia.</td>
+    </tr>
+    <tr>
+      <td class="mono">TGC (Cys)</td><td class="mono">CGC (Arg)</td>
+      <td><b>ε3</b></td>
+      <td>Neutral reference allele. Baseline cardiovascular risk.</td>
+    </tr>
+    <tr>
+      <td class="mono">CGC (Arg)</td><td class="mono">CGC (Arg)</td>
+      <td><b>ε4</b></td>
+      <td>Elevated LDL-C. Increased CVD risk. Major susceptibility allele for late-onset Alzheimer disease.</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<div class="footer">
+  <b>Report date:</b> 2026-06-15 &nbsp;&nbsp;
+  <b>Panel BED:</b> hg38_exome_comp_spikein_v2 &nbsp;&nbsp;
+  <b>Reference genome:</b> GRCh38 / hg38 &nbsp;&nbsp;
+  <b>Tool:</b> bedtools intersect v2.30.0 &nbsp;&nbsp;
+  <b>Coordinate source:</b> NCBI dbSNP (GRCh38)<br>
+  All genomic positions are 1-based GRCh38. This report is intended for research and laboratory validation purposes only and does not constitute a clinical diagnostic report.
+</div>
+
+</div>
+</body>
+</html>

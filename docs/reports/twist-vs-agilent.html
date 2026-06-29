@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Twist vs Agilent BED Comparison</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  body { font-family: 'Segoe UI', Arial, sans-serif; background:#f4f6f9; color:#333; margin:0; padding:0; }
+  .header { background:linear-gradient(135deg,#1F6AA5,#2C3E50); color:white; padding:28px 40px; }
+  .header h1 { margin:0; font-size:1.6em; }
+  .header p  { margin:6px 0 0; opacity:.85; font-size:.95em; }
+  .content { padding:30px 40px; max-width:1400px; margin:auto; }
+  .section { background:white; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,.08);
+              padding:24px 28px; margin-bottom:28px; }
+  h2 { margin-top:0; color:#2C3E50; border-bottom:2px solid #EEF4FB; padding-bottom:8px; }
+  table { border-collapse:collapse; width:100%; font-size:.85em; }
+  th { background:#2C3E50; color:white; padding:8px 10px; text-align:center; position:sticky; top:0; }
+  td { padding:6px 10px; border:1px solid #ddd; text-align:center; }
+  tr:hover td { background:#fffbe6 !important; }
+  .summary-table td { text-align:left; padding:8px 14px; }
+  .badge { display:inline-block; border-radius:4px; padding:2px 10px;
+            font-weight:bold; color:white; font-size:.82em; }
+  .twist   { background:#1F6AA5; }
+  .agilent { background:#E07B39; }
+  .overlap { background:#2E8B57; }
+  .union   { background:#6C3483; }
+  .chart-row { display:flex; gap:24px; flex-wrap:wrap; }
+  .chart-box { flex:1; min-width:420px; background:white; border-radius:8px;
+                box-shadow:0 2px 8px rgba(0,0,0,.08); padding:20px; }
+  .tscroll { overflow-x:auto; }
+  footer { text-align:center; color:#888; font-size:.8em; padding:18px; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>Twist Exome SpikeinV2 &nbsp;vs&nbsp; Agilent SureSelectXT HS Human All Exon V8</h1>
+  <p>BED File Comparison Report &nbsp;|&nbsp; Reference: hg38 / GRCh38 &nbsp;|&nbsp; Generated: 2026-03-25</p>
+</div>
+<div class="content">
+
+  <!-- Summary cards -->
+  <div class="section">
+    <h2>Summary</h2>
+    <table class="summary-table">
+      <colgroup><col style="width:42%"><col style="width:58%"></colgroup>
+      <tr><td><strong>Kit / Panel</strong></td><td>Twist Exome + SpikeinV2  vs  Agilent SureSelectXT HS Human All Exon V8</td></tr><tr><td><strong>Reference Genome</strong></td><td>hg38 / GRCh38</td></tr><tr><td><strong>Twist — Raw Intervals</strong></td><td>287,879</td></tr><tr><td><strong>Twist — Merged Intervals</strong></td><td>287,879</td></tr><tr><td><strong>Twist — Total Bases Covered</strong></td><td>37,453,133</td></tr><tr><td><strong>Agilent — Raw Intervals</strong></td><td>203,411</td></tr><tr><td><strong>Agilent — Merged Intervals</strong></td><td>203,411</td></tr><tr><td><strong>Agilent — Total Bases Covered</strong></td><td>35,130,788</td></tr><tr><td><strong>Shared (Overlap) Bases</strong></td><td>34,965,883</td></tr><tr><td><strong>Overlap % of Twist</strong></td><td>93.36%</td></tr><tr><td><strong>Overlap % of Agilent</strong></td><td>99.53%</td></tr><tr><td><strong>Twist-only Bases</strong></td><td>2,487,250</td></tr><tr><td><strong>Agilent-only Bases</strong></td><td>164,905</td></tr><tr><td><strong>Union Bases</strong></td><td>37,618,038</td></tr>
+    </table>
+  </div>
+
+  <!-- Charts -->
+  <div class="chart-row">
+    <div class="chart-box">
+      <h2 style="font-size:1em;">Bases Covered per Chromosome</h2>
+      <canvas id="barChart" height="320"></canvas>
+    </div>
+  </div>
+
+  <!-- Per-chromosome table -->
+  <div class="section">
+    <h2>Per-Chromosome Detail</h2>
+    <p>
+      <span class="badge twist">Twist</span>
+      <span class="badge agilent">Agilent</span>
+      <span class="badge overlap">Overlap</span>
+      <span class="badge union">Union</span>
+    </p>
+    <div class="tscroll">
+      <table><thead><tr><th>Chromosome</th><th>Twist Intervals (raw)</th><th>Twist Intervals (merged)</th><th>Twist Bases</th><th>Agilent Intervals (raw)</th><th>Agilent Intervals (merged)</th><th>Agilent Bases</th><th>Overlap Intervals</th><th>Overlap Bases</th><th>Overlap % of Twist</th><th>Overlap % of Agilent</th><th>Twist-only Intervals</th><th>Twist-only Bases</th><th>Agilent-only Intervals</th><th>Agilent-only Bases</th><th>Union Bases</th></tr></thead><tbody><tr style="background:#EEF4FB;"><td>chr1</td><td>27963.00</td><td>27963.00</td><td>3762272.00</td><td>20895.00</td><td>20895.00</td><td>3565266.00</td><td>20742.00</td><td>3537541.00</td><td>94.03</td><td>99.22</td><td>8779.00</td><td>224731.00</td><td>251.00</td><td>27725.00</td><td>3789997.00</td></tr><tr style="background:#FFFFFF;"><td>chr2</td><td>23490.00</td><td>23490.00</td><td>2749706.00</td><td>15569.00</td><td>15569.00</td><td>2575661.00</td><td>15480.00</td><td>2561120.00</td><td>93.14</td><td>99.44</td><td>9629.00</td><td>188586.00</td><td>134.00</td><td>14541.00</td><td>2764247.00</td></tr><tr style="background:#EEF4FB;"><td>chr3</td><td>16893.00</td><td>16893.00</td><td>2112850.00</td><td>12019.00</td><td>12019.00</td><td>1993279.00</td><td>11976.00</td><td>1988972.00</td><td>94.14</td><td>99.78</td><td>5858.00</td><td>123878.00</td><td>51.00</td><td>4307.00</td><td>2117157.00</td></tr><tr style="background:#FFFFFF;"><td>chr4</td><td>11207.00</td><td>11207.00</td><td>1470598.00</td><td>7844.00</td><td>7844.00</td><td>1397955.00</td><td>7802.00</td><td>1392284.00</td><td>94.67</td><td>99.59</td><td>3948.00</td><td>78314.00</td><td>46.00</td><td>5671.00</td><td>1476269.00</td></tr><tr style="background:#EEF4FB;"><td>chr5</td><td>13602.00</td><td>13602.00</td><td>1701773.00</td><td>8905.00</td><td>8905.00</td><td>1602810.00</td><td>8872.00</td><td>1598167.00</td><td>93.91</td><td>99.71</td><td>5479.00</td><td>103606.00</td><td>49.00</td><td>4643.00</td><td>1706416.00</td></tr><tr style="background:#FFFFFF;"><td>chr6</td><td>14188.00</td><td>14188.00</td><td>1877427.00</td><td>10036.00</td><td>10036.00</td><td>1767727.00</td><td>10002.00</td><td>1764447.00</td><td>93.98</td><td>99.81</td><td>4979.00</td><td>112980.00</td><td>36.00</td><td>3280.00</td><td>1880707.00</td></tr><tr style="background:#EEF4FB;"><td>chr7</td><td>13883.00</td><td>13883.00</td><td>1782545.00</td><td>9702.00</td><td>9702.00</td><td>1670568.00</td><td>9631.00</td><td>1661382.00</td><td>93.20</td><td>99.45</td><td>5106.00</td><td>121163.00</td><td>95.00</td><td>9186.00</td><td>1791731.00</td></tr><tr style="background:#FFFFFF;"><td>chr8</td><td>9918.00</td><td>9918.00</td><td>1257947.00</td><td>6928.00</td><td>6928.00</td><td>1185757.00</td><td>6855.00</td><td>1166992.00</td><td>92.77</td><td>98.42</td><td>3699.00</td><td>90955.00</td><td>78.00</td><td>18765.00</td><td>1276712.00</td></tr><tr style="background:#EEF4FB;"><td>chr9</td><td>12184.00</td><td>12184.00</td><td>1528882.00</td><td>8258.00</td><td>8258.00</td><td>1427930.00</td><td>8233.00</td><td>1424781.00</td><td>93.19</td><td>99.78</td><td>4661.00</td><td>104101.00</td><td>43.00</td><td>3149.00</td><td>1532031.00</td></tr><tr style="background:#FFFFFF;"><td>chr10</td><td>12014.00</td><td>12014.00</td><td>1459448.00</td><td>8352.00</td><td>8352.00</td><td>1364195.00</td><td>8323.00</td><td>1361143.00</td><td>93.26</td><td>99.78</td><td>4289.00</td><td>98305.00</td><td>35.00</td><td>3052.00</td><td>1462500.00</td></tr><tr style="background:#EEF4FB;"><td>chr11</td><td>16528.00</td><td>16528.00</td><td>2213659.00</td><td>11425.00</td><td>11425.00</td><td>2081616.00</td><td>11377.00</td><td>2075032.00</td><td>93.74</td><td>99.68</td><td>6412.00</td><td>138627.00</td><td>71.00</td><td>6584.00</td><td>2220243.00</td></tr><tr style="background:#FFFFFF;"><td>chr12</td><td>15484.00</td><td>15484.00</td><td>1956099.00</td><td>11537.00</td><td>11537.00</td><td>1827091.00</td><td>11493.00</td><td>1822857.00</td><td>93.19</td><td>99.77</td><td>4964.00</td><td>133242.00</td><td>52.00</td><td>4234.00</td><td>1960333.00</td></tr><tr style="background:#EEF4FB;"><td>chr13</td><td>5438.00</td><td>5438.00</td><td>688578.00</td><td>3570.00</td><td>3570.00</td><td>640437.00</td><td>3557.00</td><td>637822.00</td><td>92.63</td><td>99.59</td><td>2177.00</td><td>50756.00</td><td>15.00</td><td>2615.00</td><td>691193.00</td></tr><tr style="background:#FFFFFF;"><td>chr14</td><td>9032.00</td><td>9032.00</td><td>1209086.00</td><td>6504.00</td><td>6504.00</td><td>1142217.00</td><td>6465.00</td><td>1135109.00</td><td>93.88</td><td>99.38</td><td>3101.00</td><td>73977.00</td><td>86.00</td><td>7108.00</td><td>1216194.00</td></tr><tr style="background:#EEF4FB;"><td>chr15</td><td>10450.00</td><td>10450.00</td><td>1290793.00</td><td>7234.00</td><td>7234.00</td><td>1208818.00</td><td>7190.00</td><td>1201683.00</td><td>93.10</td><td>99.41</td><td>3943.00</td><td>89110.00</td><td>74.00</td><td>7135.00</td><td>1297928.00</td></tr><tr style="background:#FFFFFF;"><td>chr16</td><td>12642.00</td><td>12642.00</td><td>1609676.00</td><td>8730.00</td><td>8730.00</td><td>1470455.00</td><td>8697.00</td><td>1461796.00</td><td>90.81</td><td>99.41</td><td>5015.00</td><td>147880.00</td><td>66.00</td><td>8659.00</td><td>1618335.00</td></tr><tr style="background:#EEF4FB;"><td>chr17</td><td>16994.00</td><td>16994.00</td><td>2163946.00</td><td>12044.00</td><td>12044.00</td><td>2008214.00</td><td>12015.00</td><td>2003725.00</td><td>92.60</td><td>99.78</td><td>6351.00</td><td>160221.00</td><td>41.00</td><td>4489.00</td><td>2168435.00</td></tr><tr style="background:#FFFFFF;"><td>chr18</td><td>4802.00</td><td>4802.00</td><td>590132.00</td><td>3127.00</td><td>3127.00</td><td>551013.00</td><td>3113.00</td><td>548898.00</td><td>93.01</td><td>99.62</td><td>1994.00</td><td>41234.00</td><td>16.00</td><td>2115.00</td><td>592247.00</td></tr><tr style="background:#EEF4FB;"><td>chr19</td><td>14845.00</td><td>14845.00</td><td>2445138.00</td><td>11755.00</td><td>11755.00</td><td>2299703.00</td><td>11610.00</td><td>2281018.00</td><td>93.29</td><td>99.19</td><td>4467.00</td><td>164120.00</td><td>188.00</td><td>18685.00</td><td>2463823.00</td></tr><tr style="background:#FFFFFF;"><td>chr20</td><td>6803.00</td><td>6803.00</td><td>892171.00</td><td>4945.00</td><td>4945.00</td><td>827463.00</td><td>4926.00</td><td>825337.00</td><td>92.51</td><td>99.74</td><td>2221.00</td><td>66834.00</td><td>22.00</td><td>2126.00</td><td>894297.00</td></tr><tr style="background:#EEF4FB;"><td>chr21</td><td>3163.00</td><td>3163.00</td><td>385455.00</td><td>2136.00</td><td>2136.00</td><td>353330.00</td><td>2125.00</td><td>352065.00</td><td>91.34</td><td>99.64</td><td>1204.00</td><td>33390.00</td><td>16.00</td><td>1265.00</td><td>386720.00</td></tr><tr style="background:#FFFFFF;"><td>chr22</td><td>6401.00</td><td>6401.00</td><td>802656.00</td><td>4311.00</td><td>4311.00</td><td>736944.00</td><td>4299.00</td><td>734998.00</td><td>91.57</td><td>99.74</td><td>2545.00</td><td>67658.00</td><td>20.00</td><td>1946.00</td><td>804602.00</td></tr><tr style="background:#EEF4FB;"><td>chrX</td><td>9324.00</td><td>9324.00</td><td>1401960.00</td><td>7000.00</td><td>7000.00</td><td>1337333.00</td><td>6977.00</td><td>1334694.00</td><td>95.20</td><td>99.80</td><td>3199.00</td><td>67266.00</td><td>32.00</td><td>2639.00</td><td>1404599.00</td></tr><tr style="background:#FFFFFF;"><td>chrY</td><td>631.00</td><td>631.00</td><td>100336.00</td><td>585.00</td><td>585.00</td><td>95006.00</td><td>577.00</td><td>94020.00</td><td>93.71</td><td>98.96</td><td>63.00</td><td>6316.00</td><td>9.00</td><td>986.00</td><td>101322.00</td></tr><tr style="background:#D9E1F2;font-weight:bold;"><td>TOTAL</td><td>287879.00</td><td>287879.00</td><td>37453133.00</td><td>203411.00</td><td>203411.00</td><td>35130788.00</td><td>202337.00</td><td>34965883.00</td><td>93.36</td><td>99.53</td><td>104083.00</td><td>2487250.00</td><td>1526.00</td><td>164905.00</td><td>37618038.00</td></tr></tbody></table>
+    </div>
+  </div>
+
+</div>
+<footer>Twist_SpikeinV2_BED_Analysis — Comparison Report</footer>
+
+<script>
+const labels = ['chr1', 'chr2', 'chr3', 'chr4', 'chr5', 'chr6', 'chr7', 'chr8', 'chr9', 'chr10', 'chr11', 'chr12', 'chr13', 'chr14', 'chr15', 'chr16', 'chr17', 'chr18', 'chr19', 'chr20', 'chr21', 'chr22', 'chrX', 'chrY'];
+const twistBases   = [3762272, 2749706, 2112850, 1470598, 1701773, 1877427, 1782545, 1257947, 1528882, 1459448, 2213659, 1956099, 688578, 1209086, 1290793, 1609676, 2163946, 590132, 2445138, 892171, 385455, 802656, 1401960, 100336];
+const agilentBases = [3565266, 2575661, 1993279, 1397955, 1602810, 1767727, 1670568, 1185757, 1427930, 1364195, 2081616, 1827091, 640437, 1142217, 1208818, 1470455, 2008214, 551013, 2299703, 827463, 353330, 736944, 1337333, 95006];
+const overlapBases = [3537541, 2561120, 1988972, 1392284, 1598167, 1764447, 1661382, 1166992, 1424781, 1361143, 2075032, 1822857, 637822, 1135109, 1201683, 1461796, 2003725, 548898, 2281018, 825337, 352065, 734998, 1334694, 94020];
+
+new Chart(document.getElementById('barChart'), {
+  type: 'bar',
+  data: {
+    labels,
+    datasets: [
+      { label:'Twist Bases',   data:twistBases,   backgroundColor:'rgba(31,106,165,.75)'  },
+      { label:'Agilent Bases', data:agilentBases, backgroundColor:'rgba(224,123,57,.75)'  },
+      { label:'Overlap Bases', data:overlapBases, backgroundColor:'rgba(46,139,87,.75)'   },
+    ]
+  },
+  options:{ responsive:true, plugins:{ legend:{ position:'bottom' } },
+             scales:{ y:{ ticks:{ callback: v => (v/1e6).toFixed(1)+'M' } } } }
+});
+</script>
+</body>
+</html>
