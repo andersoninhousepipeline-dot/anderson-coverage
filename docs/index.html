@@ -1,83 +1,942 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Anderson Coverage Checker</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Coverage Checker</title>
 <style>
-  :root { --blue:#005FA0; --orange:#F08020; }
-  * { box-sizing: border-box; }
-  body { font-family: Arial, Helvetica, sans-serif; color:#222; background:#f5f6f8; margin:0; }
-  .header { background:#fff; border-bottom:3px solid var(--orange); box-shadow:0 1px 4px rgba(0,0,0,.06); }
-  .header .inner { max-width:960px; margin:0 auto; display:flex; align-items:center; gap:22px; padding:14px 18px; }
-  .header img { height:52px; }
-  .header .t { border-left:2px solid #e2e6ec; padding-left:22px; }
-  .header h1 { margin:0; font-size:20px; color:var(--blue); }
-  .header .sub { font-size:12px; color:#6a7180; margin-top:4px; }
-  .wrap { max-width:960px; margin:0 auto; padding:26px 18px 60px; }
-  h2 { font-size:12px; text-transform:uppercase; letter-spacing:.6px; color:var(--blue);
-       border-bottom:1.5px solid var(--orange); padding-bottom:5px; margin:28px 0 14px; }
-  .lead { font-size:15px; line-height:1.6; color:#333; }
-  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px; }
-  .card { background:#fff; border:1px solid #d0d5de; border-radius:8px; padding:16px 18px; }
-  .card h3 { margin:0 0 6px; font-size:14px; color:var(--blue); }
-  .card p { margin:0; font-size:13px; color:#555; line-height:1.5; }
-  code { background:#eef1f6; padding:2px 6px; border-radius:4px; font-size:13px; }
-  table { border-collapse:collapse; width:100%; background:#fff; border:1px solid #d0d5de; border-radius:8px; overflow:hidden; }
-  th { background:var(--blue); color:#fff; text-align:left; padding:8px 10px; font-size:12px; }
-  td { padding:7px 10px; font-size:13px; border-top:1px solid #e4e8f0; }
-  td code { font-size:12px; }
-  .note { background:#fff7e6; border:1px solid #f0d9a8; color:#7a5a12; padding:12px 16px;
-          border-radius:8px; font-size:13px; margin-top:16px; }
-  .foot { margin-top:34px; font-size:12px; color:#888; }
-  a { color:var(--blue); }
+:root { --blue: #005FA0; --orange: #F08020; }
+* { box-sizing: border-box; }
+body { font-family: Arial, Helvetica, sans-serif; font-size: 13px; color: #222; background: #f5f6f8; margin: 0; }
+
+/* ── Loading screen ─────────────────────────────────────────────────── */
+#loading { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+.load-box { background: #fff; border: 1px solid #d0d5de; border-radius: 12px;
+  padding: 32px 40px; text-align: center; max-width: 460px; width: 90%;
+  box-shadow: 0 4px 16px rgba(0,0,0,.10); }
+.load-box img { height: 52px; display: block; margin: 0 auto 14px; }
+.load-box h2 { color: var(--blue); margin: 0 0 6px; font-size: 20px; }
+.load-box .sub { font-size: 12px; color: #6a7180; margin-bottom: 18px; }
+#load-status { color: #333; margin: 4px 0; font-size: 13px; }
+.lbar-outer { height: 8px; background: #e4e8f0; border-radius: 99px; overflow: hidden; margin: 10px 0 6px; }
+#lbar { height: 100%; background: var(--blue); border-radius: 99px; transition: width .25s; width: 0%; }
+#load-detail { font-size: 11px; color: #888; min-height: 1.2em; }
+.load-err { background: #fbe6e6; border: 1px solid #e3b5b5; color: #8b1a1a;
+  padding: 10px 14px; border-radius: 6px; margin-top: 14px; font-size: 12px; text-align: left; }
+
+/* ── Header ──────────────────────────────────────────────────────────── */
+.report-header { background: #fff; border-bottom: 3px solid var(--orange); box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+.hdr-inner { display: flex; align-items: center; gap: 22px; padding: 14px 18px;
+  max-width: 1080px; margin: 0 auto; }
+.brand-logo { height: 52px; width: auto; }
+.hdr-text { border-left: 2px solid #e2e6ec; padding-left: 22px; }
+.report-header h1 { font-size: 19px; margin: 0; font-weight: bold; color: var(--blue); }
+.report-header .meta { font-size: 11px; color: #6a7180; margin-top: 6px; display: flex; flex-wrap: wrap; gap: 18px; }
+
+/* ── Layout ──────────────────────────────────────────────────────────── */
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 18px 60px; }
+
+/* ── Search bar ──────────────────────────────────────────────────────── */
+.searchbar { background: #fff; border: 1px solid #d0d5de; border-radius: 8px;
+  padding: 16px 18px; margin: 18px 0; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+.searchbar form { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+input[type=text] { flex: 1 1 320px; padding: 10px 12px; font-size: 14px;
+  border: 1px solid #c4ccd8; border-radius: 6px; }
+select { padding: 9px 8px; border: 1px solid #c4ccd8; border-radius: 6px; font-size: 13px; }
+button { background: var(--blue); color: #fff; border: 0; padding: 10px 20px;
+  font-size: 14px; border-radius: 6px; cursor: pointer; }
+button:hover { background: #00497d; }
+button.ghost { background: #fff; color: var(--blue); border: 1px solid var(--blue);
+  padding: 7px 14px; font-size: 12px; }
+.hint { font-size: 11px; color: #6a7180; margin-top: 8px; }
+.hint code { background: #eef1f6; padding: 1px 5px; border-radius: 3px; cursor: pointer; }
+.samplebox { margin-top: 14px; border-top: 1px dashed #d0d5de; padding-top: 12px; }
+.samplebox-h { font-size: 11px; color: var(--blue); font-weight: bold; margin-bottom: 8px; }
+.samplelist { display: flex; flex-wrap: wrap; gap: 8px; }
+.schip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #c4ccd8;
+  border-radius: 99px; padding: 5px 12px; font-size: 12px; background: #fff; }
+.schip.on { background: #eaf3ec; border-color: #2a7a47; color: #1a6033; font-weight: bold; }
+
+/* ── Results ─────────────────────────────────────────────────────────── */
+h2 { font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: .6px;
+  color: var(--blue); border-bottom: 1.5px solid var(--orange); padding-bottom: 4px; margin: 24px 0 12px; }
+.summary-bar { display: flex; flex-wrap: wrap; border: 1px solid #d0d5de;
+  border-radius: 8px; background: #fff; overflow: hidden; }
+.s-cell { flex: 1 1 130px; padding: 14px 16px; border-right: 1px solid #e4e8f0; }
+.s-cell .val { font-size: 22px; font-weight: bold; }
+.s-cell .lbl { font-size: 10px; color: #666; margin-top: 2px; text-transform: uppercase; letter-spacing: .4px; }
+.val-total { color: var(--blue); } .val-green { color: #1a6033; } .val-red { color: #8b1a1a; }
+.prog-wrap { background: #fff; border: 1px solid #d0d5de; border-radius: 8px;
+  padding: 14px 18px; margin-top: 14px; }
+.prog-outer { height: 10px; background: #e4e8f0; border-radius: 99px; overflow: hidden; }
+.prog-fill { height: 100%; background: #2a7a47; border-radius: 99px; transition: width .4s; }
+.table-wrap { background: #fff; border: 1px solid #d0d5de; border-radius: 8px;
+  overflow: auto; margin-top: 12px; }
+table { border-collapse: collapse; width: 100%; }
+thead tr { background: var(--blue); }
+thead th { color: #fff; padding: 8px 10px; font-size: 10px; font-weight: bold;
+  text-align: left; white-space: nowrap; border-right: 1px solid #1f6fae; }
+tbody tr:nth-child(even) { background: #f8f9fb; }
+tbody tr:hover { background: #eef2fa; }
+tbody td { padding: 7px 10px; font-size: 11px; vertical-align: top; border-right: 1px solid #e4e8f0; }
+.gene { font-weight: bold; color: var(--blue); }
+.mono { font-family: monospace; font-size: 10.5px; color: #444; }
+.cov-no { font-weight: bold; color: #8b1a1a; }
+.depthwrap { background: #fff; border: 1px solid #d0d5de; border-radius: 8px; overflow: auto; margin-top: 12px; }
+td.d-hi { color: #1a6033; font-weight: bold; }
+td.d-mid { color: #9a6a00; font-weight: bold; }
+td.d-lo { color: #8b1a1a; font-weight: bold; }
+.legend { font-size: 10px; color: #777; margin-top: 6px; }
+tr.combined td { background: #fff4e8; border-top: 2px solid var(--orange); font-weight: bold; }
+.pill { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: bold; }
+.pill.yes { background: #e3f3e9; color: #1a6033; }
+.pill.no  { background: #fbe6e6; color: #8b1a1a; }
+.msg { background: #fff7e6; border: 1px solid #f0d9a8; color: #7a5a12;
+  padding: 10px 14px; border-radius: 6px; font-size: 12px; margin-top: 12px; }
+.err { background: #fbe6e6; border: 1px solid #e3b5b5; color: #8b1a1a;
+  padding: 12px 16px; border-radius: 6px; margin-top: 16px; }
+.spinner { display: inline-block; width: 16px; height: 16px; border: 3px solid #cdd5e2;
+  border-top-color: var(--blue); border-radius: 50%;
+  animation: spin .7s linear infinite; vertical-align: middle; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.empty { color: #6a7180; font-size: 13px; padding: 14px 0; }
+.toolbar { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+
+@media print {
+  .searchbar, .toolbar { display: none; }
+  body { background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .report-header { border-bottom: 3px solid var(--orange) !important; }
+  thead th, tr.combined td, .prog-fill, .schip.on {
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  h2 { page-break-after: avoid; }
+  .depthwrap, .table-wrap { page-break-inside: auto; }
+}
 </style>
 </head>
 <body>
-<div class="header"><div class="inner">
-  <img src="anderson.png" alt="Anderson Diagnostics &amp; Labs">
-  <div class="t"><h1>Coverage Checker</h1>
-    <div class="sub">Panel (BED) coverage + sample read-depth coverage · GRCh38 / hg38</div></div>
-</div></div>
 
-<div class="wrap">
-  <p class="lead">An internal web tool to check NGS capture-panel coverage and real
-  sample sequencing depth — by gene, multiple genes, chromosome region, transcript,
-  or rs ID — with one-click branded PDF reports.</p>
+<!-- ── Loading screen ───────────────────────────────────────────────────── -->
+<div id="loading">
+  <div class="load-box">
+    <img src="anderson.png" alt="Anderson Diagnostics &amp; Labs">
+    <h2>Coverage Checker</h2>
+    <div class="sub">GRCh38 / hg38 · Panel target &amp; sample read-depth coverage</div>
+    <p id="load-status">Initialising…</p>
+    <div class="lbar-outer"><div id="lbar"></div></div>
+    <p id="load-detail"></p>
+    <div id="load-err" style="display:none" class="load-err"></div>
+  </div>
+</div>
 
-  <h2>What you can query</h2>
-  <table>
-    <tr><th>Type</th><th>Example</th></tr>
-    <tr><td>Gene</td><td><code>BRCA1</code></td></tr>
-    <tr><td>Multiple genes</td><td><code>BRCA1, BRCA2, TP53</code> → <code>listed gene coverage.pdf</code></td></tr>
-    <tr><td>Chromosome region</td><td><code>chr17:43044295-43125483</code></td></tr>
-    <tr><td>Transcript</td><td><code>NM_007294.4</code> (also NR/XM/XR/ENST/ENSG)</td></tr>
-    <tr><td>rs ID</td><td><code>rs6265</code> (resolved via Ensembl REST)</td></tr>
-  </table>
-
-  <h2>What each report shows</h2>
-  <div class="grid">
-    <div class="card"><h3>Panel coverage</h3><p>Whether the gene / region / variant
-      is in the capture design, targeted bp, and uncovered gaps — across any
-      selected BED panel.</p></div>
-    <div class="card"><h3>Sample read-depth</h3><p>Real coverage from reference BAMs:
-      mean ± SD, median, min, and % of target bases ≥ 1× / 10× / 20× / 30× / 50× / 100×.</p></div>
-    <div class="card"><h3>Reference types</h3><p>Normal, Male Infertility, Female
-      Infertility, AF and POC — each aggregated across replicate samples, plus an
-      Overall Coverage row.</p></div>
-    <div class="card"><h3>Reports</h3><p>Branded, print-to-PDF reports named after
-      the query; downloadable matched intervals as BED.</p></div>
+<!-- ── Main app (shown after DB loads) ─────────────────────────────────── -->
+<div id="app" style="display:none">
+  <div class="report-header">
+    <div class="hdr-inner">
+      <img src="anderson.png" class="brand-logo" alt="Anderson Diagnostics &amp; Labs">
+      <div class="hdr-text">
+        <h1>Coverage Checker</h1>
+        <div class="meta">
+          <span id="hdr-build">GRCh38 / hg38</span>
+          <span>Panel target &amp; sample read-depth coverage</span>
+          <span id="hdr-date"></span>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <div class="note"><b>This is a static information page.</b> The Coverage Checker
-  is a small Flask app. Reference coverage is shipped precomputed in
-  <code>coverage.db</code>, so it runs straight from the repo — <code>pip install
-  -r requirements.txt</code> then <code>./start.sh</code> — <b>no BAM files
-  required</b>. (GitHub Pages can't run the Python backend, so this page is
-  informational only.) See the
-  <a href="https://github.com/andersoninhousepipeline-dot/anderson-coverage">README</a>
-  for setup.</div>
-
-  <div class="foot">© Anderson Diagnostics &amp; Labs — internal bioinformatics tool.</div>
+  <div class="wrap">
+    <div class="searchbar">
+      <form id="qform" autocomplete="off">
+        <input type="text" id="q"
+          placeholder="Gene(s): BRCA1 or BRCA1, BRCA2, TP53 · region chr17:43044295-43125483 · NM_007294.4 · rs6265"
+          autofocus>
+        <select id="qtype">
+          <option value="auto">Auto-detect</option>
+          <option value="gene">Gene name</option>
+          <option value="region">Chr region</option>
+          <option value="transcript">NM / transcript ID</option>
+          <option value="rsid">rs ID</option>
+        </select>
+        <select id="panel-sel" title="Panel"></select>
+        <button type="submit">Check coverage</button>
+      </form>
+      <div class="hint">Examples:
+        <code class="ex">BRCA1</code>
+        <code class="ex">BRCA1, BRCA2, TP53</code>
+        <code class="ex">chr17:43044295-43125483</code>
+        <code class="ex">NM_007294.4</code>
+        <code class="ex">rs6265</code>
+      </div>
+      <div class="hint" style="margin-top:6px">
+        <b>Panel:</b> switch the dropdown above to check the same query against a different panel.
+      </div>
+      <div class="samplebox">
+        <div class="samplebox-h">Sample read-depth coverage is included automatically with every search:</div>
+        <div id="samplelist" class="samplelist"><span style="color:#888">loading…</span></div>
+      </div>
+    </div>
+    <div id="out"></div>
+  </div>
 </div>
+
+<!-- sql.js (WebAssembly SQLite) + pako (zlib inflate) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.12.0/sql-wasm.js"
+        integrity="sha384-1fHJox8K973mCCD3PTAOc0ljrAGXD2VeK8zf+vNIdx55pWPULNlpxKMkU8bF4nUd"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako_inflate.min.js"
+        integrity="sha384-taEjHL+GUvC8IhXeCaTNUxz3O8ItsajGFLDFj4v/VJvM24HU36qP/6sRpuAGGfeT"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+<script>
+'use strict';
+
+// ── Constants ─────────────────────────────────────────────────────────────
+const TOKEN_SPLIT  = /[;,:=|\t ]+/;
+const STOP_TOKENS  = new Set(['gene_symbol','hgnc_id','ensembl_gene_id','ncbi_gene_id',
+  'regionidxkey','no_annotation','target','covered','intron']);
+const ID_PREFIXES  = ['NM_','NR_','XM_','XR_','ENST','ENSG','CCDS'];
+const RE_REGION    = /^(chr[\w]+)[:\s]+([\d,]+)(?:[-\s]+([\d,]+))?$/i;
+const RE_RSID      = /^rs\d+$/i;
+const RE_NM        = /^(NM_|NR_|XM_|XR_|ENST|ENSG|CCDS)/i;
+const CASE_TYPES   = [
+  { id: 'male-infertility',   ref: 'normal-male'   },
+  { id: 'female-infertility', ref: 'normal-female'  },
+  { id: 'af',                 ref: 'pooled'          },
+  { id: 'poc',                ref: 'pooled'          },
+];
+const ABS_FLOOR    = 20;
+const ENSEMBL      = 'https://rest.ensembl.org';
+
+// ── Global state ──────────────────────────────────────────────────────────
+let sqlDb       = null;
+let panel       = null;
+let sampleTypes = [];      // [{slug, label, n, ord}]
+let thresholds  = [1,10,20,30,50,100];
+let dbMeta      = {};
+let rsidCache   = new Map();
+let REPORT_NAME = 'coverage';
+let lastResult  = null;
+
+// ── Loading UI ────────────────────────────────────────────────────────────
+const setStatus  = msg => { document.getElementById('load-status').textContent = msg; };
+const setDetail  = msg => { document.getElementById('load-detail').textContent = msg; };
+const setLPct    = pct => { document.getElementById('lbar').style.width = Math.min(100, pct) + '%'; };
+function showLoadError(msg) {
+  const el = document.getElementById('load-err');
+  el.style.display = 'block';
+  el.textContent   = msg;
+  document.getElementById('lbar').style.background = '#c0392b';
+  setStatus('Failed to load.');
+}
+
+// ── Tokeniser / annotation helpers ───────────────────────────────────────
+function tokenize(annot) { return annot ? annot.split(TOKEN_SPLIT).filter(t => t) : []; }
+
+function splitAnnot(annot) {
+  const genes = [], ids = [], other = [];
+  const seenG = new Set(), seenI = new Set();
+  for (const tok of tokenize(annot)) {
+    if (ID_PREFIXES.some(p => tok.startsWith(p))) {
+      if (!seenI.has(tok)) { ids.push(tok); seenI.add(tok); }
+    } else if (tok.startsWith('ClinID')) {
+      other.push(tok);
+    } else if (/^\d+$/.test(tok) || STOP_TOKENS.has(tok.toLowerCase())) {
+      // skip
+    } else {
+      if (!seenG.has(tok)) { genes.push(tok); seenG.add(tok); }
+    }
+  }
+  return { genes, ids, other };
+}
+
+// ── Bisect ────────────────────────────────────────────────────────────────
+function bisectLeft(arr, val) {
+  let lo = 0, hi = arr.length;
+  while (lo < hi) { const mid = (lo + hi) >> 1; if (arr[mid] < val) lo = mid + 1; else hi = mid; }
+  return lo;
+}
+
+// ── Panel index ───────────────────────────────────────────────────────────
+function buildPanelIndex(coordRows, annots) {
+  const r_chrom = [], r_start = [], r_end = [], r_annot = [];
+  const token_map  = new Map();   // UPPER token -> [row indices]
+  const chrom_rows = new Map();   // chrom -> [[start, end, i]]
+  let total_bp = 0;
+
+  for (let i = 0; i < coordRows.length; i++) {
+    const [chrom, start, end] = coordRows[i];
+    const annot = annots[i] || '';
+    r_chrom.push(chrom); r_start.push(start); r_end.push(end); r_annot.push(annot);
+    total_bp += Math.max(0, end - start);
+    if (!chrom_rows.has(chrom)) chrom_rows.set(chrom, []);
+    chrom_rows.get(chrom).push([start, end, i]);
+    for (const tok of tokenize(annot)) {
+      if (tok.startsWith('ClinID') || /^\d+$/.test(tok) || STOP_TOKENS.has(tok.toLowerCase())) continue;
+      const key = tok.toUpperCase();
+      if (!token_map.has(key)) token_map.set(key, []);
+      token_map.get(key).push(i);
+    }
+  }
+
+  const by_chrom = new Map();
+  for (const [chrom, rws] of chrom_rows) {
+    rws.sort((a, b) => a[0] - b[0]);
+    by_chrom.set(chrom, {
+      starts:  rws.map(r => r[0]),
+      ends:    rws.map(r => r[1]),
+      idx:     rws.map(r => r[2]),
+      max_len: Math.max(0, ...rws.map(r => r[1] - r[0])),
+    });
+  }
+  return { r_chrom, r_start, r_end, r_annot, token_map, by_chrom, n_rows: coordRows.length, total_bp };
+}
+
+function panelOverlap(chrom, qstart, qend) {
+  const c = panel.by_chrom.get(chrom);
+  if (!c) return [];
+  const { starts, ends, idx, max_len } = c;
+  const lo = Math.max(0, bisectLeft(starts, qstart - max_len));
+  const out = [];
+  for (let i = lo; i < starts.length && starts[i] < qend; i++) {
+    if (ends[i] > qstart) out.push(idx[i]);
+  }
+  return out;
+}
+
+function rowsForToken(token)  { return panel.token_map.get(token.toUpperCase()) || []; }
+
+function freeText(needle, limit = 2000) {
+  needle = needle.toUpperCase();
+  const out = [];
+  for (let i = 0; i < panel.r_annot.length; i++) {
+    if (panel.r_annot[i].toUpperCase().includes(needle)) {
+      out.push(i);
+      if (out.length >= limit) break;
+    }
+  }
+  return out;
+}
+
+// ── Interval helpers ──────────────────────────────────────────────────────
+function mergeIntervals(ivs) {
+  if (!ivs.length) return [];
+  const s = [...ivs].sort((a, b) => a[0] - b[0]);
+  const m = [[...s[0]]];
+  for (const [a, b] of s.slice(1)) {
+    if (a <= m[m.length-1][1]) m[m.length-1][1] = Math.max(m[m.length-1][1], b);
+    else m.push([a, b]);
+  }
+  return m;
+}
+
+function mergedBpAcrossChroms(idxs) {
+  const byChrom = new Map();
+  for (const i of idxs) {
+    const ch = panel.r_chrom[i];
+    if (!byChrom.has(ch)) byChrom.set(ch, []);
+    byChrom.get(ch).push([panel.r_start[i], panel.r_end[i]]);
+  }
+  let total = 0;
+  for (const ivs of byChrom.values()) for (const [s, e] of mergeIntervals(ivs)) total += e - s;
+  return total;
+}
+
+function rowsPayload(idxs) {
+  return idxs.map(i => {
+    const { genes, ids } = splitAnnot(panel.r_annot[i]);
+    return { chrom: panel.r_chrom[i], start: panel.r_start[i], end: panel.r_end[i],
+             length: panel.r_end[i] - panel.r_start[i], genes, ids, annot: panel.r_annot[i] };
+  }).sort((a, b) => a.chrom < b.chrom ? -1 : a.chrom > b.chrom ? 1 : a.start - b.start);
+}
+
+function summarizeRows(rows) {
+  if (!rows.length) return { intervals: 0, targeted_bp: 0, chroms: [], span_start: null, span_end: null };
+  const firstChrom = rows[0].chrom;
+  const ivs = mergeIntervals(rows.filter(r => r.chrom === firstChrom).map(r => [r.start, r.end]));
+  return {
+    intervals:   rows.length,
+    targeted_bp: ivs.reduce((s, [a, b]) => s + b - a, 0),
+    chroms:      [...new Set(rows.map(r => r.chrom))].sort(),
+    span_start:  Math.min(...rows.map(r => r.start)),
+    span_end:    Math.max(...rows.map(r => r.end)),
+  };
+}
+
+function computeGaps(start, end, covered) {
+  const gaps = []; let cur = start;
+  for (const [s, e] of covered) {
+    if (s > cur) gaps.push({ start: cur, end: s, length: s - cur });
+    cur = Math.max(cur, e);
+  }
+  if (cur < end) gaps.push({ start: cur, end, length: end - cur });
+  return gaps;
+}
+
+function nearestInterval(chrom, pos) {
+  const c = panel.by_chrom.get(chrom);
+  if (!c) return null;
+  const { starts, ends, idx } = c;
+  let best = null, bestD = null;
+  for (let j = 0; j < starts.length; j++) {
+    const d = ends[j] <= pos ? pos - ends[j] : starts[j] > pos ? starts[j] - pos : 0;
+    if (bestD === null || d < bestD) { bestD = d; best = idx[j]; }
+    if (starts[j] > pos && bestD !== null && (starts[j] - pos) > bestD) break;
+  }
+  if (best === null) return null;
+  const { genes, ids } = splitAnnot(panel.r_annot[best]);
+  return { chrom, start: panel.r_start[best], end: panel.r_end[best], distance: bestD, genes, ids };
+}
+
+// ── Coverage DB query ─────────────────────────────────────────────────────
+// Binary format per interval: n_types × 32 bytes
+//   per type (ord order): struct('<Q6I') = uint64 sum_depth + 6×uint32 threshold_counts
+function computeSampleCoverage(idxs) {
+  if (!idxs.length || !sampleTypes.length) return null;
+  const bp_total = idxs.reduce((s, i) => s + panel.r_end[i] - panel.r_start[i], 0);
+  const acc = sampleTypes.map(() => ({ sumDepth: 0, counts: new Array(thresholds.length).fill(0) }));
+
+  const CHUNK = 900;
+  for (let off = 0; off < idxs.length; off += CHUNK) {
+    const chunk = idxs.slice(off, off + CHUNK);
+    const ph  = chunk.map(() => '?').join(',');
+    const res = sqlDb.exec(`SELECT data FROM cov WHERE interval_id IN (${ph})`, chunk);
+    if (!res.length) continue;
+    for (const [blob] of res[0].values) {
+      // blob is Uint8Array returned by sql.js for BLOB columns
+      const dv = new DataView(blob.buffer, blob.byteOffset, blob.byteLength);
+      for (let t = 0; t < sampleTypes.length; t++) {
+        const base = t * 32;
+        acc[t].sumDepth += Number(dv.getBigUint64(base, true));
+        for (let k = 0; k < thresholds.length; k++)
+          acc[t].counts[k] += dv.getUint32(base + 8 + k * 4, true);
+      }
+    }
+  }
+
+  return sampleTypes.map((st, t) => {
+    const denom = bp_total * (st.n || 1);
+    const base  = { id: st.slug, label: st.label, n: st.n, total_bases: bp_total, median: null, mean_sd: 0 };
+    if (denom === 0)
+      return { ...base, mean: 0, min: 0, pct: Object.fromEntries(thresholds.map(thr => [String(thr), null])) };
+    const { sumDepth, counts } = acc[t];
+    const pct = Object.fromEntries(thresholds.map((thr, k) =>
+      [String(thr), Math.round(1000 * counts[k] / denom) / 10]));
+    let min_tier = 0;
+    for (let k = 0; k < thresholds.length; k++) if (counts[k] >= denom) min_tier = thresholds[k];
+    return { ...base, mean: Math.round(sumDepth / denom * 10) / 10, min: min_tier, pct };
+  });
+}
+
+// ── Query type detection ──────────────────────────────────────────────────
+function detectType(q) {
+  q = q.trim();
+  if (RE_RSID.test(q))   return 'rsid';
+  if (RE_REGION.test(q)) return 'region';
+  if (q.split(/[,\s]+/).filter(t => t).length > 1) return 'genes';
+  if (RE_NM.test(q))     return 'transcript';
+  return 'gene';
+}
+
+// ── rs-ID resolution via Ensembl REST ────────────────────────────────────
+async function resolveRsid(rsid) {
+  if (rsidCache.has(rsid)) return rsidCache.get(rsid);
+  if (!/^rs\d+$/i.test(rsid)) return { error: 'Invalid rs ID (expected e.g. rs6265).' };
+  try {
+    const r = await fetch(`${ENSEMBL}/variation/human/${encodeURIComponent(rsid)}?content-type=application/json`);
+    if (!r.ok) {
+      const res = { error: `Ensembl returned HTTP ${r.status} for ${rsid}` };
+      rsidCache.set(rsid, res); return res;
+    }
+    const data = await r.json();
+    const mappings = (data.mappings || [])
+      .filter(m => !m.assembly_name || m.assembly_name === 'GRCh38')
+      .flatMap(m => {
+        const mm = /^([^:]+):(\d+)-(\d+)$/.exec(m.location || '');
+        if (!mm) return [];
+        let chrom = mm[1];
+        if (!chrom.startsWith('chr')) chrom = 'chr' + chrom;
+        return [{ chrom, start: +mm[2], end: +mm[3], allele: m.allele_string || '' }];
+      });
+    const res = { rsid, mappings,
+                  consequence: data.most_severe_consequence || '',
+                  synonyms: (data.synonyms || []).slice(0, 6) };
+    rsidCache.set(rsid, res);
+    return res;
+  } catch(e) {
+    return { error: `Lookup failed for ${rsid}: ${e.message}` };
+  }
+}
+
+// ── Query engine ──────────────────────────────────────────────────────────
+async function doQuery(q, qtype) {
+  q = q.trim();
+  if (qtype === 'auto') qtype = detectType(q);
+  const tokens = q.split(/[,\s]+/).filter(t => t);
+  if ((qtype === 'gene' || qtype === 'transcript' || qtype === 'genes') && tokens.length > 1)
+    qtype = 'genes';
+
+  const result = { query: q, type: qtype, ok: true, messages: [] };
+
+  // ── Multi-gene ──
+  if (qtype === 'genes') {
+    const names = [...new Map(tokens.map(t => [t.toUpperCase(), t])).values()];
+    const genes = [], all_idxs = [];
+    for (const name of names) {
+      let idxs = rowsForToken(name);
+      if (!idxs.length) idxs = freeText(name);
+      const rows = rowsPayload(idxs);
+      all_idxs.push(...idxs);
+      genes.push({ name, found: !!rows.length, summary: summarizeRows(rows),
+                   sample_coverage: computeSampleCoverage(idxs) });
+    }
+    result.genes    = genes;
+    result.n_genes  = names.length;
+    result.n_found  = genes.filter(g => g.found).length;
+    result.combined_summary        = { targeted_bp: mergedBpAcrossChroms(all_idxs), intervals: all_idxs.length };
+    result.combined_sample_coverage = computeSampleCoverage(all_idxs);
+    return result;
+  }
+
+  // ── Chr region ──
+  if (qtype === 'region') {
+    const m = RE_REGION.exec(q);
+    if (!m) return { ok: false, error: 'Could not parse region. Use chr1:65564-70008.' };
+    let chrom = m[1];
+    if (!chrom.startsWith('chr')) chrom = 'chr' + chrom;
+    chrom = 'chr' + chrom.slice(3);
+    const s0 = parseInt(m[2].replace(/,/g, '')), e0 = m[3] ? parseInt(m[3].replace(/,/g, '')) : s0 + 1;
+    const [qs, qe] = s0 <= e0 ? [s0, e0] : [e0, s0];
+    const idxs = panelOverlap(chrom, qs, qe);
+    const rows = rowsPayload(idxs);
+    const clipped  = mergeIntervals(rows.map(r => [Math.max(r.start, qs), Math.min(r.end, qe)]));
+    const covered_bp  = clipped.reduce((s, [a, b]) => s + b - a, 0);
+    const region_len  = Math.max(1, qe - qs);
+    result.region   = { chrom, start: qs, end: qe, length: qe - qs };
+    result.rows     = rows;
+    result.summary  = summarizeRows(rows);
+    result.coverage = {
+      covered_bp, region_bp: qe - qs,
+      pct: Math.round(1000 * covered_bp / region_len) / 10,
+      n_covered_segments: clipped.length,
+      gaps: computeGaps(qs, qe, clipped),
+      fully_covered: covered_bp >= (qe - qs) && (qe - qs) > 0,
+    };
+    result.sample_coverage = computeSampleCoverage(idxs);
+    return result;
+  }
+
+  // ── rs ID ──
+  if (qtype === 'rsid') {
+    const info = await resolveRsid(q);
+    if (info.error) return { ok: false, error: info.error };
+    const hits = [];
+    for (const mp of info.mappings) {
+      const idxs  = panelOverlap(mp.chrom, mp.start - 1, mp.end);
+      const rows  = rowsPayload(idxs);
+      hits.push({ position: mp, covered: !!rows.length, rows,
+                  nearest: !rows.length ? nearestInterval(mp.chrom, mp.start) : null,
+                  sample_coverage: computeSampleCoverage(idxs) });
+    }
+    result.rsid    = { id: q, consequence: info.consequence || '', synonyms: info.synonyms || [] };
+    result.hits    = hits;
+    result.covered = hits.some(h => h.covered);
+    return result;
+  }
+
+  // ── Gene / transcript ──
+  let idxs = rowsForToken(q);
+  let used_fallback = false;
+  if (!idxs.length) {
+    idxs = freeText(q);
+    used_fallback = !!idxs.length;
+    if (used_fallback) result.messages.push('No exact gene/transcript token matched — showing substring matches.');
+  }
+  const rows = rowsPayload(idxs);
+  result.rows             = rows;
+  result.summary          = summarizeRows(rows);
+  result.fallback         = used_fallback;
+  result.found            = !!rows.length;
+  result.sample_coverage  = computeSampleCoverage(idxs);
+  return result;
+}
+
+// ── Render helpers ────────────────────────────────────────────────────────
+const $   = s => document.querySelector(s);
+const fmt = n => n == null ? '' : n.toLocaleString();
+const esc = s => (s || '').replace(/[&<>"]/g,
+  c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+function rowsTable(rows) {
+  if (!rows || !rows.length) return '<div class="empty">No target intervals.</div>';
+  let h = '<div class="table-wrap"><table><thead><tr>' +
+    '<th>Chrom</th><th>Start</th><th>End</th><th>Length (bp)</th><th>Gene(s)</th><th>Transcript / IDs</th>' +
+    '</tr></thead><tbody>';
+  for (const r of rows)
+    h += '<tr><td class="mono">'+esc(r.chrom)+'</td><td class="mono">'+fmt(r.start)+
+      '</td><td class="mono">'+fmt(r.end)+'</td><td class="mono">'+fmt(r.length)+
+      '</td><td class="gene">'+esc((r.genes||[]).join(', '))+
+      '</td><td class="mono">'+esc((r.ids||[]).join(', '))+'</td></tr>';
+  return h + '</tbody></table></div>';
+}
+
+function dcell(pct) {
+  if (pct == null) return '<td>—</td>';
+  const cls = pct >= 95 ? 'd-hi' : pct >= 80 ? 'd-mid' : 'd-lo';
+  return `<td class="${cls}">${pct}%</td>`;
+}
+
+function depthTable(cov, opts) {
+  opts = opts || {};
+  if (!cov || !cov.length) return '';
+  let h = '<h2>' + esc(opts.title || 'Sample read-depth coverage') + '</h2>' +
+    '<div class="depthwrap"><table><thead><tr>' +
+    '<th>Sample</th><th>Target bp</th><th>Mean depth</th><th>Median</th><th>Min</th>';
+  for (const t of thresholds) h += `<th>% &ge; ${t}x</th>`;
+  h += '</tr></thead><tbody>';
+  for (const c of cov) {
+    if (c.error) {
+      h += '<tr><td>'+esc(c.label||c.id||'sample')+'</td><td colspan="'+(4+thresholds.length)+
+           '" class="d-lo">'+esc(c.error)+'</td></tr>';
+      continue;
+    }
+    h += '<tr><td class="gene">'+esc(c.label)+'</td>' +
+      '<td class="mono">'+fmt(c.total_bases)+'</td>' +
+      '<td class="mono"><b>'+c.mean+'x</b></td>' +
+      '<td class="mono">'+(c.median==null?'—':c.median+'x')+'</td>' +
+      '<td class="mono">'+(c.min==null?'—':c.min+'x')+'</td>';
+    for (const t of thresholds) h += dcell(c.pct[String(t)]);
+    h += '</tr>';
+  }
+  const valid = cov.filter(c => !c.error && c.total_bases);
+  if (valid.length > 1) {
+    const avg  = arr => Math.round(arr.reduce((x, y) => x + y, 0) / arr.length * 10) / 10;
+    const avgN = k   => { const v = valid.map(c => c[k]).filter(x => x != null);
+                          return v.length ? avg(v) + 'x' : '—'; };
+    h += '<tr class="combined"><td class="gene">Overall Coverage</td>' +
+      '<td class="mono">'+fmt(valid[0].total_bases)+'</td>' +
+      '<td class="mono"><b>'+avg(valid.map(c => c.mean))+'x</b></td>' +
+      '<td class="mono">'+avgN('median')+'</td>' +
+      '<td class="mono">'+avgN('min')+'</td>';
+    for (const t of thresholds) h += dcell(avg(valid.map(c => c.pct[String(t)] || 0)));
+    h += '</tr>';
+  }
+  h += '</tbody></table></div><div class="legend">% of target bases at or above each depth. ' +
+    'Green &ge;95% · amber &ge;80% · red &lt;80%. Reads: duplicates/secondary/QC-fail excluded. ' +
+    '<b>Overall Coverage</b> = average across all reference samples.</div>';
+  return h;
+}
+
+function referencePanel(cov) {
+  if (!cov || !cov.length) return '';
+  const byId = {};
+  cov.forEach(c => { if (!c.error) byId[c.id] = c; });
+  const nm = byId['normal-male'], nf = byId['normal-female'];
+  if (!nm && !nf) return '';
+  let pooled = null;
+  if (nm && nf) pooled = { mean: (nm.mean+nf.mean)/2, sd: Math.max(nm.mean_sd||0, nf.mean_sd||0), label: 'Normal (M+F)' };
+  const refOf = key => key === 'pooled' ? pooled
+    : key === 'normal-male' ? (nm && { mean: nm.mean, sd: nm.mean_sd||0, label: nm.label })
+                            : (nf && { mean: nf.mean, sd: nf.mean_sd||0, label: nf.label });
+  const rows = [];
+  for (const ct of CASE_TYPES) {
+    const c = byId[ct.id], r = refOf(ct.ref);
+    if (!c || !r) continue;
+    const low  = Math.min(r.mean - 2 * r.sd, 0.8 * r.mean);
+    const status = r.mean < ABS_FLOOR ? 'na'
+                 : (c.mean < low || c.mean < ABS_FLOOR) ? 'flag' : 'ok';
+    rows.push({ label: c.label, mean: c.mean, refLabel: r.label, refMean: Math.round(r.mean),
+                low: Math.max(0, Math.round(low)), status });
+  }
+  if (!rows.length) return '';
+  const anyFlag = rows.some(r => r.status === 'flag');
+  let h = '<h2>Case vs reference (Normal) range ' +
+    (anyFlag ? '<span class="pill no">⚠ '+rows.filter(r=>r.status==='flag').length+' flagged</span>'
+             : '<span class="pill yes">all within range</span>') + '</h2>' +
+    '<div class="depthwrap"><table><thead><tr>' +
+    '<th>Case type</th><th>Mean depth</th><th>Reference</th><th>Expected (mean − 2 SD)</th><th>Status</th>' +
+    '</tr></thead><tbody>';
+  for (const r of rows) {
+    const cls   = r.status==='flag' ? 'd-lo' : r.status==='ok' ? 'd-hi' : '';
+    const badge = r.status==='flag' ? '<span class="pill no">⚠ BELOW RANGE</span>'
+                : r.status==='ok'   ? '<span class="pill yes">within range</span>'
+                :                     '<span class="empty">n/a — not covered in reference</span>';
+    h += '<tr><td class="gene">'+esc(r.label)+'</td>' +
+      '<td class="mono '+cls+'">'+r.mean+'x</td>' +
+      '<td class="mono">'+esc(r.refLabel)+' ('+r.refMean+'x)</td>' +
+      '<td class="mono">'+(r.status==='na'?'—':'&ge; '+r.low+'x')+'</td>' +
+      '<td>'+badge+'</td></tr>';
+  }
+  h += '</tbody></table></div><div class="legend">Flagged when a case type\'s mean depth is below its ' +
+    'sex-matched Normal reference (mean − 2·SD, with a 20% / '+ABS_FLOOR+'× floor). ' +
+    'AF / POC compared to pooled Normal (M+F). <b>n/a</b> = region not covered in the reference ' +
+    '(e.g. chrY in females).</div>';
+  return h;
+}
+
+function depthAtVariant(cov) {
+  if (!cov || !cov.length) return '';
+  let h = '<div class="depthwrap" style="margin-top:8px"><table><thead><tr>' +
+    '<th>Sample</th><th>Read depth at variant base</th></tr></thead><tbody>';
+  for (const c of cov) {
+    if (c.error) { h += '<tr><td>'+esc(c.label)+'</td><td class="d-lo">'+esc(c.error)+'</td></tr>'; continue; }
+    const cls = c.mean>=20?'d-hi':(c.mean>=10?'d-mid':'d-lo');
+    h += '<tr><td class="gene">'+esc(c.label)+'</td><td class="'+cls+'">'+Math.round(c.mean)+'x</td></tr>';
+  }
+  return h + '</tbody></table></div>';
+}
+
+function sumBar(cells) {
+  return '<div class="summary-bar">' +
+    cells.map(c => '<div class="s-cell"><div class="val '+(c.cls||'val-total')+'">'+c.val+
+      '</div><div class="lbl">'+c.lbl+'</div></div>').join('') + '</div>';
+}
+
+function safeName(s) { return (s||'coverage').replace(/[^A-Za-z0-9 _-]+/g,'_').trim()||'coverage'; }
+
+function printReport() {
+  const prev = document.title;
+  document.title = REPORT_NAME;
+  window.print();
+  setTimeout(() => { document.title = prev; }, 500);
+}
+
+function downloadBed() {
+  if (!lastResult) return;
+  const d = lastResult;
+  let rows = [];
+  if (d.rows) {
+    rows = d.rows;
+  } else if (d.hits) {
+    d.hits.forEach(h => rows.push(...(h.rows||[])));
+  } else if (d.type === 'genes' && d.genes) {
+    d.genes.forEach(g => {
+      let idxs = rowsForToken(g.name);
+      if (!idxs.length) idxs = freeText(g.name);
+      rows.push(...rowsPayload(idxs));
+    });
+  }
+  if (!rows.length) return;
+  const lines = rows.map(r => [r.chrom, r.start, r.end, r.annot].join('\t'));
+  const blob  = new Blob([lines.join('\n') + '\n'], { type: 'text/plain' });
+  const url   = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = safeName(d.query) + '.bed'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function dlButtons() {
+  return '<div class="toolbar">' +
+    '<button class="ghost" type="button" onclick="downloadBed()">Download BED</button>' +
+    '<button class="ghost" type="button" onclick="printReport()">Print / Save PDF</button>' +
+    '</div>';
+}
+
+function render(d) {
+  lastResult = d;
+  const out = $('#out');
+  if (!d.ok) { out.innerHTML = '<div class="err">'+esc(d.error||'Query failed.')+'</div>'; return; }
+  let h = '';
+  for (const m of (d.messages||[])) h += '<div class="msg">'+esc(m)+'</div>';
+
+  if (d.type === 'genes') {
+    REPORT_NAME = 'listed gene coverage';
+    h += '<h2>Multiple-gene coverage — '+d.n_found+' / '+d.n_genes+' found</h2>';
+    h += sumBar([
+      { val: d.n_genes, lbl: 'Genes queried' },
+      { val: d.n_found, lbl: 'Found in panel', cls: d.n_found===d.n_genes?'val-green':'val-red' },
+      { val: fmt(d.combined_summary.targeted_bp), lbl: 'Combined targeted bp', cls: 'val-green' },
+      { val: d.combined_summary.intervals, lbl: 'Target intervals' },
+    ]);
+    h += dlButtons();
+    h += depthTable(d.combined_sample_coverage, { title: 'Combined sample read-depth coverage (all listed genes)' });
+    h += referencePanel(d.combined_sample_coverage);
+    for (const g of d.genes) {
+      h += '<h2>'+esc(g.name)+(g.found?'':' — <span class="cov-no">not found</span>')+'</h2>';
+      if (!g.found) { h += '<div class="empty">No target intervals for '+esc(g.name)+' in this panel.</div>'; continue; }
+      const s = g.summary;
+      h += '<div class="empty" style="padding:4px 0"><b>'+s.intervals+'</b> intervals · <b>'+
+           fmt(s.targeted_bp)+'</b> targeted bp · '+esc(s.chroms.join(', '))+'</div>';
+      h += depthTable(g.sample_coverage, { title: 'Read-depth coverage — '+g.name });
+    }
+
+  } else if (d.type === 'region') {
+    const cov = d.coverage, rg = d.region;
+    REPORT_NAME = safeName(rg.chrom+'_'+rg.start+'-'+rg.end)+' coverage';
+    h += '<h2>Region coverage — '+esc(rg.chrom)+':'+fmt(rg.start)+'-'+fmt(rg.end)+'</h2>';
+    h += sumBar([
+      { val: fmt(rg.length), lbl: 'Region size (bp)' },
+      { val: fmt(cov.covered_bp), lbl: 'Covered by panel (bp)', cls: 'val-green' },
+      { val: cov.pct+'%', lbl: 'Percent covered',
+        cls: cov.pct>=99.9?'val-green':(cov.pct<=0.01?'val-red':'val-total') },
+      { val: d.summary.intervals, lbl: 'Target intervals' },
+      { val: cov.gaps.length, lbl: 'Uncovered gaps', cls: cov.gaps.length?'val-red':'val-green' },
+    ]);
+    h += '<div class="prog-wrap"><div class="prog-outer"><div class="prog-fill" style="width:'+
+         Math.min(100,cov.pct)+'%"></div></div></div>';
+    h += dlButtons();
+    h += depthTable(d.sample_coverage, { title: 'Sample read-depth coverage over captured region' });
+    h += referencePanel(d.sample_coverage);
+    h += '<h2>Target intervals overlapping region</h2>' + rowsTable(d.rows);
+    if (cov.gaps && cov.gaps.length) {
+      h += '<h2>Uncovered gaps</h2><div class="table-wrap"><table><thead><tr>' +
+           '<th>Chrom</th><th>Gap start</th><th>Gap end</th><th>Length (bp)</th></tr></thead><tbody>';
+      for (const g of cov.gaps)
+        h += '<tr><td class="mono">'+esc(rg.chrom)+'</td><td class="mono">'+fmt(g.start)+
+             '</td><td class="mono">'+fmt(g.end)+'</td><td class="mono cov-no">'+fmt(g.length)+'</td></tr>';
+      h += '</tbody></table></div>';
+    }
+
+  } else if (d.type === 'rsid') {
+    REPORT_NAME = safeName(d.rsid.id)+' coverage';
+    h += '<h2>Variant coverage — '+esc(d.rsid.id)+'</h2>';
+    h += sumBar([
+      { val: d.covered?'YES':'NO', lbl: 'In panel target', cls: d.covered?'val-green':'val-red' },
+      { val: esc(d.rsid.consequence||'—'), lbl: 'Most severe consequence' },
+      { val: d.hits.length, lbl: 'Genomic mapping(s)' },
+    ]);
+    h += dlButtons();
+    for (const hit of d.hits) {
+      const p = hit.position;
+      h += '<h2>Position '+esc(p.chrom)+':'+fmt(p.start)+'  ('+esc(p.allele||'')+')  ' +
+           '<span class="pill '+(hit.covered?'yes':'no')+'">'+(hit.covered?'COVERED':'NOT COVERED')+'</span></h2>';
+      h += depthAtVariant(hit.sample_coverage);
+      if (hit.covered) {
+        h += rowsTable(hit.rows);
+      } else if (hit.nearest) {
+        const n = hit.nearest;
+        h += '<div class="empty">Nearest target interval: <span class="mono">'+esc(n.chrom)+':'+
+             fmt(n.start)+'-'+fmt(n.end)+'</span> ('+fmt(n.distance)+' bp away) — '+
+             '<span class="gene">'+esc((n.genes||[]).join(', '))+'</span></div>';
+      } else {
+        h += '<div class="empty">No nearby target interval.</div>';
+      }
+    }
+
+  } else { // gene / transcript
+    const s = d.summary;
+    REPORT_NAME = safeName(d.query)+' coverage';
+    h += '<h2>'+(d.type==='transcript'?'Transcript':'Gene')+' coverage — '+esc(d.query)+'</h2>';
+    if (!d.found) {
+      h += '<div class="err">No target intervals found for <b>'+esc(d.query)+'</b> in this panel.</div>';
+      out.innerHTML = h; return;
+    }
+    h += sumBar([
+      { val: s.intervals, lbl: 'Target intervals' },
+      { val: fmt(s.targeted_bp), lbl: 'Targeted bases (bp)', cls: 'val-green' },
+      { val: esc(s.chroms.join(', ')), lbl: 'Chromosome' },
+      { val: s.span_start!=null ? fmt(s.span_end - s.span_start) : '—', lbl: 'Genomic span (bp)' },
+    ]);
+    h += dlButtons();
+    h += depthTable(d.sample_coverage, { title: 'Sample read-depth coverage over targets' });
+    h += referencePanel(d.sample_coverage);
+    h += '<h2>Target intervals</h2>' + rowsTable(d.rows);
+  }
+  out.innerHTML = h;
+}
+
+// ── Main query handler ────────────────────────────────────────────────────
+async function run() {
+  const q = $('#q').value.trim();
+  if (!q) return;
+  $('#out').innerHTML = '<div style="padding:20px"><span class="spinner"></span>' +
+    '<span style="margin-left:8px;color:var(--blue)">Checking BED + sample read-depth coverage…</span></div>';
+  try {
+    render(await doQuery(q, $('#qtype').value));
+  } catch(e) {
+    $('#out').innerHTML = '<div class="err">Query failed: '+esc(e.message)+'</div>';
+    console.error(e);
+  }
+}
+
+// ── Initialisation ────────────────────────────────────────────────────────
+async function init() {
+  try {
+    // 1. Init sql.js (loads WASM from CDN)
+    setStatus('Initialising SQL engine…');
+    setLPct(5);
+    const SQL = await initSqlJs({
+      locateFile: f => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.12.0/${f}`,
+    });
+
+    // 2. Fetch coverage.db with progress bar
+    setStatus('Loading coverage database…');
+    const response = await fetch('./coverage.db');
+    if (!response.ok) throw new Error(`Failed to fetch coverage.db: HTTP ${response.status}`);
+    const contentLength = +response.headers.get('Content-Length') || 0;
+    const reader = response.body.getReader();
+    const chunks = []; let received = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value); received += value.length;
+      setLPct(contentLength ? 5 + 60 * received / contentLength : 30);
+      setDetail(contentLength
+        ? `${(received/1e6).toFixed(1)} / ${(contentLength/1e6).toFixed(1)} MB`
+        : `${(received/1e6).toFixed(1)} MB received`);
+    }
+    setLPct(65); setStatus('Opening database…'); setDetail('');
+    const buf = new Uint8Array(received);
+    let boff = 0; for (const ch of chunks) { buf.set(ch, boff); boff += ch.length; }
+    sqlDb = new SQL.Database(buf);
+
+    // 3. Read metadata
+    const metaRows = sqlDb.exec("SELECT key, value FROM meta")[0]?.values || [];
+    for (const [k, v] of metaRows) dbMeta[k] = v;
+    thresholds  = JSON.parse(dbMeta.thresholds || '[1,10,20,30,50,100]');
+    const stRows = sqlDb.exec("SELECT slug, label, n, ord FROM sample_type ORDER BY ord")[0]?.values || [];
+    sampleTypes  = stRows.map(([slug, label, n, ord]) => ({ slug, label, n, ord }));
+
+    // 4. Decompress annotation pack (Python zlib.compress → pako.inflate)
+    setStatus('Building panel index…'); setLPct(70);
+    const annotBlob   = sqlDb.exec("SELECT data FROM annot_pack")[0].values[0][0];
+    const decompressed = pako.inflate(annotBlob);   // handles zlib format (RFC 1950)
+    const annots       = new TextDecoder().decode(decompressed).split('\n');
+
+    // 5. Load intervals and build in-memory index
+    const coordRows = sqlDb.exec("SELECT chrom, start, end FROM intervals ORDER BY id")[0]?.values || [];
+    setLPct(80); setDetail(`Indexing ${coordRows.length.toLocaleString()} intervals…`);
+    panel = buildPanelIndex(coordRows, annots);
+    setLPct(95); setDetail('');
+
+    // 6. Show app
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('app').style.display = '';
+    document.getElementById('hdr-date').textContent  = 'Generated: ' + new Date().toLocaleString();
+    document.getElementById('hdr-build').textContent = dbMeta.genome_build || 'GRCh38 / hg38';
+
+    // Panel dropdown (single panel from DB)
+    const sel  = document.getElementById('panel-sel');
+    const pname = dbMeta.panel_name || 'Reference panel';
+    const opt  = document.createElement('option');
+    opt.value  = pname;
+    opt.textContent = pname + ' (' + panel.n_rows.toLocaleString() + ' intervals)';
+    sel.appendChild(opt);
+
+    // Sample chips
+    const box = document.getElementById('samplelist');
+    box.innerHTML = sampleTypes.length
+      ? sampleTypes.map(st => '<span class="schip on">'+esc(st.label)+
+          (st.n ? ' <span style="opacity:.7;font-weight:normal">n='+st.n+'</span>' : '')+'</span>').join('')
+      : '<span style="color:#888">No reference samples configured.</span>';
+
+    setLPct(100);
+
+    // Wire up events
+    document.getElementById('qform').addEventListener('submit', e => { e.preventDefault(); run(); });
+    document.querySelectorAll('.ex').forEach(c =>
+      c.addEventListener('click', () => {
+        $('#q').value = c.textContent;
+        document.getElementById('qform').requestSubmit();
+      }));
+    $('#q').focus();
+
+  } catch(e) {
+    showLoadError('Failed to load: ' + e.message);
+    console.error(e);
+  }
+}
+
+init();
+</script>
 </body>
 </html>
