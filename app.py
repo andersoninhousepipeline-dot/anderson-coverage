@@ -20,10 +20,14 @@ from flask import Flask, request, jsonify, render_template_string, Response
 
 from coverage_index import Panel, merge_intervals, tokenize, _STOP_TOKENS
 import samples as samplemod
+import coverage_db
 
+HERE = os.path.dirname(os.path.abspath(__file__))
 BED_DIR = os.environ.get("BED_DIR", "/data/bed")
-UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+# Precomputed coverage DB — when present the app reports sample coverage from it
+# (no BAM files needed). Build with build/build_db.py.
+DB_PATH = os.environ.get("COVERAGE_DB", os.path.join(HERE, "coverage.db"))
+COVDB = None   # set in setup_panels()
 
 # Friendly names for the two primary panels; everything else is auto-discovered.
 PREFERRED = {
@@ -45,57 +49,59 @@ def register_panel(name, path):
 
 
 def discover_panels():
-    """Scan BED_DIR (and uploads/) for *.bed files and register them as panels."""
+    """Scan BED_DIR for *.bed files and register them as panels (if present)."""
     PANELS.clear()
     PANEL_ORDER.clear()
     found = []
-    for root, _dirs, files in os.walk(BED_DIR):
-        # don't descend into the app's own folder twice / skip caches
-        if os.path.basename(root) in ("__pycache__",):
-            continue
-        for fn in files:
-            if fn.endswith(".bed"):
-                found.append((root, fn))
-    # preferred files first, in defined order
+    if os.path.isdir(BED_DIR):
+        for root, _dirs, files in os.walk(BED_DIR):
+            if os.path.basename(root) in ("__pycache__",):
+                continue
+            for fn in files:
+                if fn.endswith(".bed"):
+                    found.append((root, fn))
     pref_paths = []
     for base, label in PREFERRED.items():
         p = os.path.join(BED_DIR, base)
         if os.path.exists(p):
             register_panel(label, p)
             pref_paths.append(p)
-    # the rest, alphabetically by relative path
     rest = []
     for root, fn in found:
         full = os.path.join(root, fn)
         if full in pref_paths:
             continue
-        rel = os.path.relpath(full, BED_DIR)
-        rest.append((rel, full))
+        rest.append((os.path.relpath(full, BED_DIR), full))
     for rel, full in sorted(rest):
         register_panel(rel, full)
-    # uploaded panels
-    for fn in sorted(os.listdir(UPLOAD_DIR)):
-        if fn.endswith(".bed"):
-            register_panel("uploads/" + fn, os.path.join(UPLOAD_DIR, fn))
 
 
-discover_panels()
+def setup_panels():
+    """Discover BED panels, then make the precomputed-DB panel (if any) the
+    default reference panel so coverage interval-ids line up with the DB."""
+    global COVDB
+    discover_panels()
+    COVDB = coverage_db.open_db(DB_PATH)
+    if COVDB is not None:
+        name = COVDB.panel_name
+        if name in PANELS:                     # drop the BED-loaded duplicate
+            PANEL_ORDER.remove(name); del PANELS[name]
+        PANELS[name] = COVDB.panel             # already loaded; ids match cov table
+        PANEL_ORDER.insert(0, name)
+
+
+setup_panels()
 
 ENSEMBL = "https://rest.ensembl.org"
 GENOME_BUILD = "GRCh38 / hg38"
 
 app = Flask(__name__)
-# Cap upload size (panels can be ~90 MB; default 512 MB).
-app.config["MAX_CONTENT_LENGTH"] = int(os.environ.get("MAX_UPLOAD_MB", "512")) * 1024 * 1024
-# Optional shared secret to gate the write endpoint on untrusted networks.
-# When unset (default), upload is open — suitable for a trusted LAN deployment.
-UPLOAD_TOKEN = os.environ.get("COVERAGE_UPLOAD_TOKEN", "")
 
 
 # ── panel access ──────────────────────────────────────────────────────────────
 def get_panel(name=None):
     if not PANEL_ORDER:
-        raise RuntimeError("No panel BED files found in %s" % BED_DIR)
+        raise RuntimeError("No coverage panel available (need coverage.db or a BED in %s)" % BED_DIR)
     if not name or name not in PANELS:
         name = PANEL_ORDER[0]
     return PANELS[name].load()
@@ -248,31 +254,30 @@ def do_query(q, qtype, panel_name, sample_accs=None):
             if t.upper() not in seen:
                 seen.add(t.upper()); names.append(t)
         genes = []
-        all_ivs = []
+        all_idxs = []
         for name in names:
             idxs = panel.rows_for_token(name)
             if not idxs:
                 idxs = panel.free_text(name)
             rows = rows_payload(panel, idxs)
-            ivs = [(r["chrom"], r["start"], r["end"]) for r in rows]
-            all_ivs.extend(ivs)
+            all_idxs.extend(idxs)
             genes.append({
                 "name": name,
                 "found": bool(rows),
                 "summary": summarize_rows(rows),
-                "sample_coverage": compute_sample_coverage(ivs, sample_accs),
+                "sample_coverage": compute_sample_coverage(panel, idxs, sample_accs),
             })
+        all_ivs = [(panel.r_chrom[i], panel.r_start[i], panel.r_end[i]) for i in all_idxs]
         result.update({
             "genes": genes,
             "n_genes": len(names),
             "n_found": sum(1 for g in genes if g["found"]),
             "combined_summary": {
-                "targeted_bp": sum(
-                    e - s for ivs in samplemod._merge(all_ivs).values()
-                    for s, e in ivs),
-                "intervals": len(all_ivs),
+                "targeted_bp": sum(e - s for ivs in samplemod._merge(all_ivs).values()
+                                   for s, e in ivs),
+                "intervals": len(all_idxs),
             },
-            "combined_sample_coverage": compute_sample_coverage(all_ivs, sample_accs),
+            "combined_sample_coverage": compute_sample_coverage(panel, all_idxs, sample_accs),
         })
         return result
 
@@ -296,8 +301,6 @@ def do_query(q, qtype, panel_name, sample_accs=None):
         covered = sum(e - s for s, e in clipped)
         region_len = max(1, end - start)
         gaps = compute_gaps(start, end, clipped)
-        # depth over captured portion of the region (fall back to whole region if no targets)
-        depth_ivs = [(chrom, s, e) for s, e in clipped] or [(chrom, start, end)]
         result.update({
             "region": {"chrom": chrom, "start": start, "end": end,
                        "length": end - start},
@@ -311,7 +314,8 @@ def do_query(q, qtype, panel_name, sample_accs=None):
                 "fully_covered": covered >= (end - start) and (end - start) > 0,
             },
             "summary": summarize_rows(rows),
-            "sample_coverage": compute_sample_coverage(depth_ivs, sample_accs),
+            # depth over the target intervals overlapping the region
+            "sample_coverage": compute_sample_coverage(panel, idxs, sample_accs),
         })
         return result
 
@@ -326,12 +330,11 @@ def do_query(q, qtype, panel_name, sample_accs=None):
             nearest = None
             if not rows:
                 nearest = nearest_interval(panel, mp["chrom"], mp["start"])
-            # read depth AT the variant base for each sample
-            base_iv = [(mp["chrom"], mp["start"] - 1, mp["end"])]
+            # depth over the target interval(s) covering the variant
             hits.append({
                 "position": mp, "covered": bool(rows),
                 "rows": rows, "nearest": nearest,
-                "sample_coverage": compute_sample_coverage(base_iv, sample_accs),
+                "sample_coverage": compute_sample_coverage(panel, idxs, sample_accs),
             })
         result.update({
             "rsid": {"id": q, "consequence": info.get("consequence", ""),
@@ -351,26 +354,30 @@ def do_query(q, qtype, panel_name, sample_accs=None):
             result["messages"].append(
                 "No exact gene/transcript token matched — showing substring matches.")
     rows = rows_payload(panel, idxs)
-    depth_ivs = [(r["chrom"], r["start"], r["end"]) for r in rows]
     result.update({
         "rows": rows,
         "summary": summarize_rows(rows),
         "fallback": used_fallback,
         "found": bool(rows),
-        "sample_coverage": compute_sample_coverage(depth_ivs, sample_accs),
+        "sample_coverage": compute_sample_coverage(panel, idxs, sample_accs),
     })
     return result
 
 
-def compute_sample_coverage(intervals, sample_accs):
-    """Run per-sample depth over the given intervals; returns list or None."""
-    if not sample_accs or not intervals:
-        return None
-    accs = [a for a in sample_accs if a in samplemod.SAMPLES]
-    if not accs:
+def compute_sample_coverage(panel, idxs, sample_accs):
+    """Per-sample depth over panel interval ids. Uses the precomputed DB when
+    present (no BAMs), else computes live from BAMs."""
+    if not sample_accs or not idxs:
         return None
     try:
-        return samplemod.coverage_multi(accs, intervals)
+        if COVDB is not None and panel is COVDB.panel:
+            return COVDB.coverage(sample_accs, idxs)
+        # BAM mode: build coords from the panel rows
+        accs = [a for a in sample_accs if a in samplemod.SAMPLES]
+        if not accs:
+            return None
+        coords = [(panel.r_chrom[i], panel.r_start[i], panel.r_end[i]) for i in idxs]
+        return samplemod.coverage_multi(accs, coords)
     except Exception as e:
         return [{"error": f"Depth computation failed: {e}"}]
 
@@ -421,47 +428,20 @@ def index():
     return render_template_string(PAGE, panels=PANEL_ORDER, build=GENOME_BUILD)
 
 
-@app.route("/api/upload", methods=["POST"])
-def api_upload():
-    # Optional auth: when COVERAGE_UPLOAD_TOKEN is set, require it on writes.
-    if UPLOAD_TOKEN and request.headers.get("X-Upload-Token", "") != UPLOAD_TOKEN:
-        return jsonify({"ok": False, "error": "Upload not authorized."}), 403
-    f = request.files.get("bed")
-    if not f or not f.filename:
-        return jsonify({"ok": False, "error": "No file received."})
-    name = re.sub(r"[^A-Za-z0-9._-]+", "_", os.path.basename(f.filename))
-    if not name.endswith(".bed"):
-        name += ".bed"
-    dest = os.path.join(UPLOAD_DIR, name)
-    f.save(dest)
-    # quick validation: at least one parseable BED line
-    ok_line = False
-    with open(dest) as fh:
-        for line in fh:
-            p = line.rstrip("\n").split("\t")
-            if len(p) >= 3 and p[1].isdigit() and p[2].isdigit():
-                ok_line = True
-                break
-    if not ok_line:
-        os.remove(dest)
-        return jsonify({"ok": False, "error": "File is not a tab-delimited BED "
-                        "(need chrom<TAB>start<TAB>end)."})
-    pname = "uploads/" + name
-    # (re)register and load
-    if pname in PANELS:
-        del PANELS[pname]
-        PANEL_ORDER.remove(pname)
-    register_panel(pname, dest)
-    PANELS[pname].load()
-    return jsonify({"ok": True, "panel": pname,
-                    "rows": PANELS[pname].n_rows,
-                    "targeted_bp": PANELS[pname].total_bp})
+def sample_list_and_thresholds():
+    if COVDB is not None:
+        return COVDB.list_samples(), COVDB.thresholds
+    return samplemod.list_samples(), samplemod.THRESHOLDS
+
+
+def sample_order():
+    return COVDB.sample_order if COVDB is not None else list(samplemod.SAMPLE_ORDER)
 
 
 @app.route("/api/samples")
 def api_samples():
-    return jsonify({"samples": samplemod.list_samples(),
-                    "thresholds": samplemod.THRESHOLDS})
+    samples, thresholds = sample_list_and_thresholds()
+    return jsonify({"samples": samples, "thresholds": thresholds})
 
 
 @app.route("/api/panels")
@@ -480,7 +460,7 @@ def api_query():
     qtype = request.args.get("type", "auto")
     panel_name = request.args.get("panel", "")
     # Sample read-depth coverage is mandatory — always run all reference samples.
-    sample_accs = list(samplemod.SAMPLE_ORDER)
+    sample_accs = sample_order()
     if not q:
         return jsonify({"ok": False, "error": "Empty query."})
     try:
@@ -650,12 +630,8 @@ PAGE = r"""<!DOCTYPE html>
       <code class="ex">NM_007294.4</code>
       <code class="ex">rs6265</code>
     </div>
-    <div class="hint" style="margin-top:10px; display:flex; gap:8px; align-items:center; flex-wrap:wrap">
-      <span><b>Panel (BED file):</b> switch the dropdown above to check the same query against a different panel.</span>
-      <label class="ghostlbl">Upload BED…
-        <input type="file" id="bedfile" accept=".bed,.txt" style="display:none">
-      </label>
-      <span id="uploadmsg"></span>
+    <div class="hint" style="margin-top:10px">
+      <b>Panel:</b> switch the dropdown above to check the same query against a different panel.
     </div>
     <div class="samplebox">
       <div class="samplebox-h">Sample read-depth coverage is included automatically with every search:</div>
@@ -706,26 +682,6 @@ async function loadSamples(){
 }
 loadSamples();
 
-$('#bedfile').addEventListener('change', async e => {
-  const f = e.target.files[0];
-  if(!f) return;
-  const msg = $('#uploadmsg');
-  msg.innerHTML = '<span class="spinner"></span> uploading & indexing…';
-  const fd = new FormData(); fd.append('bed', f);
-  try {
-    const r = await fetch('/api/upload', {method:'POST', body: fd});
-    const d = await r.json();
-    if(d.ok){
-      msg.textContent = '✓ loaded ' + d.panel + ' (' + d.rows.toLocaleString() + ' intervals)';
-      await loadPanels(d.panel);
-    } else {
-      msg.innerHTML = '<span style="color:#8b1a1a">✗ ' + esc(d.error) + '</span>';
-    }
-  } catch(err){
-    msg.innerHTML = '<span style="color:#8b1a1a">✗ ' + esc(err.message) + '</span>';
-  }
-  e.target.value = '';
-});
 
 function fmt(n){ return (n==null)?'':n.toLocaleString(); }
 function esc(s){ return (s||'').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
@@ -766,8 +722,8 @@ function depthTable(cov, opts){
     h += '<tr><td class="gene">'+esc(c.label)+'</td>'+
       '<td class="mono">'+fmt(c.total_bases)+'</td>'+
       '<td class="mono"><b>'+c.mean+'x</b></td>'+
-      '<td class="mono">'+c.median+'x</td>'+
-      '<td class="mono">'+c.min+'x</td>';
+      '<td class="mono">'+(c.median==null?'—':c.median+'x')+'</td>'+
+      '<td class="mono">'+(c.min==null?'—':c.min+'x')+'</td>';
     for(const t of THRESHOLDS) h += dcell(c.pct[String(t)]);
     h += '</tr>';
   }
@@ -775,12 +731,14 @@ function depthTable(cov, opts){
   const valid = cov.filter(c => !c.error && c.total_bases);
   if(valid.length > 1){
     const avg = a => Math.round(a.reduce((x,y)=>x+y,0)/a.length*10)/10;
+    const avgN = k => { const v=valid.map(c=>c[k]).filter(x=>x!=null);
+                        return v.length?avg(v)+'x':'—'; };
     const tb = valid[0].total_bases;
     h += '<tr class="combined"><td class="gene">Overall Coverage</td>'+
       '<td class="mono">'+fmt(tb)+'</td>'+
       '<td class="mono"><b>'+avg(valid.map(c=>c.mean))+'x</b></td>'+
-      '<td class="mono">'+avg(valid.map(c=>c.median))+'x</td>'+
-      '<td class="mono">'+avg(valid.map(c=>c.min))+'x</td>';
+      '<td class="mono">'+avgN('median')+'</td>'+
+      '<td class="mono">'+avgN('min')+'</td>';
     for(const t of THRESHOLDS) h += dcell(avg(valid.map(c=>c.pct[String(t)]||0)));
     h += '</tr>';
   }

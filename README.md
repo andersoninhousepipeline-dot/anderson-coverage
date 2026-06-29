@@ -32,16 +32,25 @@ PDF filename follows the query: `BRCA1 coverage.pdf`, `listed gene coverage.pdf`
 git clone https://github.com/andersoninhousepipeline-dot/anderson-coverage.git
 cd anderson-coverage
 pip install -r requirements.txt
-
-# Point the app at your data (defaults shown):
-export BED_DIR=/data/bed            # folder of *.bed panels
-export BAM_DIR=/data/bed/reference  # folder of indexed reference *.bam
-
 ./start.sh                          # http://<host>:8100   (PORT=8101 ./start.sh to change)
 ```
 
-Requires Python 3 with Flask, requests, pysam, numpy (see `requirements.txt`).
-rs-ID lookups call `rest.ensembl.org` (needs internet). BAMs must be indexed (`.bai`).
+That's it — the committed **`coverage.db`** holds the precomputed reference
+coverage, so the tool runs straight from the repo **with no BAM files**.
+
+Requires Python 3 with Flask, requests, numpy (and pysam only for the optional
+BAM/server mode). rs-ID lookups call `rest.ensembl.org` (needs internet).
+
+### Two modes
+
+| Mode | When | Sample coverage source |
+|------|------|------------------------|
+| **DB (default)** | `coverage.db` present (committed) | precomputed — exact mean & every % ≥ Nx; no BAMs needed |
+| **BAM (server)** | set `BED_DIR` / `BAM_DIR` to local data, no DB | computed live from BAMs (adds median + per-replicate SD) |
+
+`coverage.db` is built offline from BAMs with mosdepth — see
+[build/](build/) (`run_mosdepth.sh` then `build_db.py`). It is exact for mean and
+all `% ≥ Nx`; per-region median and per-replicate SD are available only in BAM mode.
 
 ## Server control
 
@@ -53,10 +62,10 @@ rs-ID lookups call `rest.ensembl.org` (needs internet). BAMs must be indexed (`.
 
 ## Panels (BED files)
 
-Every `*.bed` under `BED_DIR` is auto-discovered and selectable in the dropdown.
+In DB mode the reference (Twist Spikein) panel comes from `coverage.db`. In BAM/
+server mode, every `*.bed` under `BED_DIR` is also auto-discovered and selectable.
 Mixed vendor annotation styles are supported (Twist `Gene;NM_…`, Roche
-`gene_symbol=…`, Sophia `Gene:NM:exon`, comma / tab / plain). Users can also
-**upload a BED** in the UI. Region and rs-ID queries work on any BED; gene /
+`gene_symbol=…`, Sophia `Gene:NM:exon`, comma / tab / plain). Region and rs-ID queries work on any BED; gene /
 transcript search needs an annotated 4th column.
 
 ## Reference samples
@@ -91,10 +100,12 @@ replicate's depth is computed in parallel (process pool) and the replicates of a
 type are aggregated to one row: **mean of replicate means (± SD)**, mean median,
 worst-case min, and mean %≥threshold. Replicate count shows as `n=…`.
 
-**To add samples:** drop more indexed `*.bam` into the matching type folder and
-`./restart.sh`. To add a new type, create a folder and add a `DIR_MAP` row.
+**To add samples** (BAM/server mode): drop more indexed `*.bam` into the matching
+type folder and `./restart.sh`. To add a new type, create a folder and add a
+`DIR_MAP` row. Then rebuild `coverage.db` (`build/run_mosdepth.sh` + `build_db.py`)
+and commit it to refresh the DB-mode deployment.
 
-Sample read-depth is **mandatory** (always computed for all types) so every report
+Sample read-depth is **mandatory** (always shown for all types) so every report
 shows both BED coverage and real sample coverage.
 
 ## API
@@ -102,18 +113,13 @@ shows both BED coverage and real sample coverage.
 - `GET /api/query?q=<term>&panel=<name>` → JSON report (BED + sample depth)
 - `GET /api/bed?q=<term>&panel=<name>`   → matched intervals as BED
 - `GET /api/panels` · `GET /api/samples`
-- `POST /api/upload` (multipart `bed`) → register an uploaded panel
 
 ## Security / deployment notes
 
-This is an internal lab tool. For a trusted LAN it runs as-is. For shared or
-untrusted networks:
-
-- `HOST=127.0.0.1 ./start.sh` — bind to localhost only (default is `0.0.0.0`
-  for LAN access) and front it with an authenticating reverse proxy.
-- `COVERAGE_UPLOAD_TOKEN=<secret>` — require header `X-Upload-Token` on the
-  `/api/upload` write endpoint (unset = open).
-- `MAX_UPLOAD_MB=512` — cap upload size.
+This is an internal, read-only lab tool (no upload/write endpoints). For a trusted
+LAN it runs as-is. For shared or untrusted networks use
+`HOST=127.0.0.1 ./start.sh` (default bind is `0.0.0.0` for LAN access) behind an
+authenticating reverse proxy.
 
 rs-ID input is validated (`rs\d+`) and URL-encoded before the Ensembl call; the
 rs-ID cache is size-bounded; API errors are logged server-side and return a

@@ -5,6 +5,11 @@ uploads/
 __pycache__/
 *.pyc
 
+# Coverage-DB build artifacts (large; regenerate via build/). The built
+# coverage.db IS committed (it is what makes the tool work without BAMs).
+build/mosdepth/
+build/*.log
+
 # Data files should never be committed (they live on the server, not in git)
 *.bam
 *.bai

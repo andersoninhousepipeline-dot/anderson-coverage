@@ -69,11 +69,13 @@
   </div>
 
   <div class="note"><b>This is a static information page.</b> The Coverage Checker
-  is a Flask application that runs on the lab server (it reads BED panels and BAM
-  files locally). Open it at your internal URL, e.g.
-  <code>http://&lt;lab-server&gt;:8100</code>. See the repository
+  is a small Flask app. Reference coverage is shipped precomputed in
+  <code>coverage.db</code>, so it runs straight from the repo — <code>pip install
+  -r requirements.txt</code> then <code>./start.sh</code> — <b>no BAM files
+  required</b>. (GitHub Pages can't run the Python backend, so this page is
+  informational only.) See the
   <a href="https://github.com/andersoninhousepipeline-dot/anderson-coverage">README</a>
-  for setup and server controls.</div>
+  for setup.</div>
 
   <div class="foot">© Anderson Diagnostics &amp; Labs — internal bioinformatics tool.</div>
 </div>

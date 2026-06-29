@@ -64,48 +64,56 @@ class Panel:
         self.total_bp = 0
 
     # ── loading ────────────────────────────────────────────────────────────
-    def load(self):
-        if self.loaded:
-            return self
-        chrom_rows = defaultdict(list)  # chrom -> [(start, end, idx)]
+    def _iter_bed(self):
         with open(self.path) as fh:
-            i = 0
             for line in fh:
                 if not line or line[0] == "#":
                     continue
                 parts = line.rstrip("\n").split("\t")
                 if len(parts) < 3:
                     continue
-                chrom = parts[0]
                 try:
-                    start = int(parts[1])
-                    end = int(parts[2])
+                    start = int(parts[1]); end = int(parts[2])
                 except ValueError:
                     continue
-                annot = parts[3] if len(parts) > 3 else ""
-                self.r_chrom.append(chrom)
-                self.r_start.append(start)
-                self.r_end.append(end)
-                self.r_annot.append(annot)
-                self.total_bp += max(0, end - start)
-                chrom_rows[chrom].append((start, end, i))
-                # token map
-                if annot:
-                    for tok in tokenize(annot):
-                        if (tok.startswith(_SKIP_TOKEN_PREFIXES)
-                                or tok.isdigit()
-                                or tok.lower() in _STOP_TOKENS):
-                            continue
-                        self.token_map[tok.upper()].append(i)
-                i += 1
-            self.n_rows = i
+                yield parts[0], start, end, (parts[3] if len(parts) > 3 else "")
 
-        # build per-chrom sorted arrays
-        for chrom, rows in chrom_rows.items():
-            rows.sort(key=lambda r: r[0])
-            starts = [r[0] for r in rows]
-            ends = [r[1] for r in rows]
-            idx = [r[2] for r in rows]
+    def load(self):
+        """Load intervals from the BED file at self.path."""
+        if self.loaded:
+            return self
+        return self.load_rows(self._iter_bed())
+
+    def load_rows(self, rows):
+        """Build the index from an iterable of (chrom, start, end, annot).
+
+        Used both for BED files and for the precomputed coverage DB (where the
+        row order defines the interval id)."""
+        if self.loaded:
+            return self
+        chrom_rows = defaultdict(list)  # chrom -> [(start, end, idx)]
+        i = 0
+        for chrom, start, end, annot in rows:
+            self.r_chrom.append(chrom)
+            self.r_start.append(start)
+            self.r_end.append(end)
+            self.r_annot.append(annot)
+            self.total_bp += max(0, end - start)
+            chrom_rows[chrom].append((start, end, i))
+            if annot:
+                for tok in tokenize(annot):
+                    if (tok.startswith(_SKIP_TOKEN_PREFIXES)
+                            or tok.isdigit()
+                            or tok.lower() in _STOP_TOKENS):
+                        continue
+                    self.token_map[tok.upper()].append(i)
+            i += 1
+        self.n_rows = i
+        for chrom, rws in chrom_rows.items():
+            rws.sort(key=lambda r: r[0])
+            starts = [r[0] for r in rws]
+            ends = [r[1] for r in rws]
+            idx = [r[2] for r in rws]
             max_len = max((e - s for s, e in zip(starts, ends)), default=0)
             self.by_chrom[chrom] = {
                 "starts": starts, "ends": ends, "idx": idx, "max_len": max_len,
