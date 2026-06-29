@@ -761,8 +761,6 @@ function render(d) {
       { val: d.combined_summary.intervals, lbl: 'Target intervals' },
     ]);
     h += dlButtons();
-    h += depthTable(d.combined_sample_coverage, { title: 'Combined sample read-depth coverage (all listed genes)' });
-    h += referencePanel(d.combined_sample_coverage);
     for (const g of d.genes) {
       h += '<h2>'+esc(g.name)+(g.found?'':' — <span class="cov-no">not found</span>')+'</h2>';
       if (!g.found) { h += '<div class="empty">No target intervals for '+esc(g.name)+' in this panel.</div>'; continue; }
@@ -770,6 +768,7 @@ function render(d) {
       h += '<div class="empty" style="padding:4px 0"><b>'+s.intervals+'</b> intervals · <b>'+
            fmt(s.targeted_bp)+'</b> targeted bp · '+esc(s.chroms.join(', '))+'</div>';
       h += depthTable(g.sample_coverage, { title: 'Read-depth coverage — '+g.name });
+      h += referencePanel(g.sample_coverage);
     }
 
   } else if (d.type === 'region') {
