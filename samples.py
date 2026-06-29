@@ -29,11 +29,12 @@ BAM_DIR = os.environ.get("BAM_DIR", "/data/bed/reference")
 
 # Directory name -> (display label, public slug). Order = display order.
 DIR_MAP = [
-    ("Normal",     "Normal",             "normal"),
-    ("Male-Inf",   "Male Infertility",   "male-infertility"),
-    ("Female-Inf", "Female Infertility", "female-infertility"),
-    ("AF",         "AF",                 "af"),
-    ("POC",        "POC",                "poc"),
+    ("Normal-Male",   "Normal Male",        "normal-male"),
+    ("Normal-Female", "Normal Female",      "normal-female"),
+    ("Male-Inf",      "Male Infertility",   "male-infertility"),
+    ("Female-Inf",    "Female Infertility", "female-infertility"),
+    ("AF",            "AF",                 "af"),
+    ("POC",           "POC",                "poc"),
 ]
 
 # Depth thresholds reported as "% of target bases >= X".

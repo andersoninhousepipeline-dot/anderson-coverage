@@ -67,12 +67,24 @@ identifiers are committed to the repo — only the directory layout matters:
 
 ```
 BAM_DIR/
-  Normal/      *.bam   # +.bai
-  Male-Inf/    *.bam
-  Female-Inf/  *.bam
-  AF/          *.bam
-  POC/         *.bam
+  Normal-Male/    *.bam   # +.bai
+  Normal-Female/  *.bam
+  Male-Inf/       *.bam
+  Female-Inf/     *.bam
+  AF/             *.bam
+  POC/            *.bam
 ```
+
+Every report also includes a **Case vs reference** panel: each case type
+(Male/Female Infertility, AF, POC) is flagged when its mean depth falls below the
+sex-matched Normal reference range (mean − 2·SD, with a 20% / 20× floor).
+Male Infertility → Normal Male, Female Infertility → Normal Female, AF/POC →
+pooled Normal. Regions not covered in the reference (e.g. chrY in females) show
+**n/a** instead of a false flag.
+
+> **Note:** BAM files and the reference data are **not** in this repository (too
+> large, and private). The published GitHub Pages site is an informational landing
+> page only — the tool must run on a server that has the BED panels and BAMs.
 
 The dir → label/slug mapping is in `samples.py` (`DIR_MAP`). For each query, every
 replicate's depth is computed in parallel (process pool) and the replicates of a

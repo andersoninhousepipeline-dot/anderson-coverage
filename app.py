@@ -789,6 +789,63 @@ function depthTable(cov, opts){
        '<b>Overall Coverage</b> = average across all reference samples.</div>';
   return h;
 }
+// Case-vs-reference: flag case sample types whose mean depth falls below the
+// sex-matched Normal reference range (Normal mean - 2*SD, with a 20% floor).
+const CASE_TYPES = [
+  {id:'male-infertility',   ref:'normal-male'},
+  {id:'female-infertility', ref:'normal-female'},
+  {id:'af',                 ref:'pooled'},
+  {id:'poc',                ref:'pooled'},
+];
+const ABS_FLOOR = 20;   // mean depth below this is always flagged
+function referencePanel(cov){
+  if(!cov || !cov.length) return '';
+  const byId = {}; cov.forEach(c => { if(!c.error) byId[c.id] = c; });
+  const nm = byId['normal-male'], nf = byId['normal-female'];
+  if(!nm && !nf) return '';
+  let pooled = null;
+  if(nm && nf){ const m=(nm.mean+nf.mean)/2, sd=Math.max(nm.mean_sd||0,nf.mean_sd||0);
+    pooled = {mean:m, sd:sd, label:'Normal (M+F)'}; }
+  const refOf = key => key==='pooled' ? pooled
+        : (key==='normal-male' ? (nm&&{mean:nm.mean,sd:nm.mean_sd||0,label:nm.label})
+                               : (nf&&{mean:nf.mean,sd:nf.mean_sd||0,label:nf.label}));
+  const rows = [];
+  for(const ct of CASE_TYPES){
+    const c = byId[ct.id]; const r = refOf(ct.ref);
+    if(!c || !r) continue;
+    const low = Math.min(r.mean - 2*r.sd, 0.8*r.mean);
+    let status;                                  // 'na' | 'flag' | 'ok'
+    if(r.mean < ABS_FLOOR) status = 'na';        // region not covered in reference (e.g. chrY in females)
+    else status = ((c.mean < low) || (c.mean < ABS_FLOOR)) ? 'flag' : 'ok';
+    rows.push({label:c.label, mean:c.mean, refLabel:r.label, refMean:Math.round(r.mean),
+               low:Math.max(0,Math.round(low)), status});
+  }
+  if(!rows.length) return '';
+  const anyFlag = rows.some(r => r.status==='flag');
+  let h = '<h2>Case vs reference (Normal) range '+
+    (anyFlag?'<span class="pill no">⚠ '+rows.filter(r=>r.status==='flag').length+' flagged</span>'
+            :'<span class="pill yes">all within range</span>')+'</h2>'+
+    '<div class="depthwrap"><table><thead><tr>'+
+    '<th>Case type</th><th>Mean depth</th><th>Reference</th><th>Expected (mean − 2 SD)</th><th>Status</th>'+
+    '</tr></thead><tbody>';
+  for(const r of rows){
+    const cls = r.status==='flag'?'d-lo':(r.status==='ok'?'d-hi':'');
+    const badge = r.status==='flag' ? '<span class="pill no">⚠ BELOW RANGE</span>'
+                : r.status==='ok'   ? '<span class="pill yes">within range</span>'
+                :                     '<span class="empty">n/a — not covered in reference</span>';
+    h += '<tr><td class="gene">'+esc(r.label)+'</td>'+
+      '<td class="mono '+cls+'">'+r.mean+'x</td>'+
+      '<td class="mono">'+esc(r.refLabel)+' ('+r.refMean+'x)</td>'+
+      '<td class="mono">'+(r.status==='na'?'—':'&ge; '+r.low+'x')+'</td>'+
+      '<td>'+badge+'</td></tr>';
+  }
+  h += '</tbody></table></div><div class="legend">Flagged when a case type’s mean depth '+
+       'is below its sex-matched Normal reference (mean − 2·SD, with a 20% / '+ABS_FLOOR+'× floor). '+
+       'AF / POC compared to pooled Normal (M+F). <b>n/a</b> = region not covered in the reference '+
+       '(e.g. chrY in females).</div>';
+  return h;
+}
+
 function depthAtVariant(cov){
   if(!cov || !cov.length) return '';
   let h = '<div class="depthwrap" style="margin-top:8px"><table><thead><tr>'+
@@ -844,6 +901,7 @@ function render(d){
     ]);
     h += dlButtons();
     h += depthTable(d.combined_sample_coverage, {title:'Combined sample read-depth coverage (all listed genes)'});
+    h += referencePanel(d.combined_sample_coverage);
     for(const g of d.genes){
       h += '<h2>'+esc(g.name)+(g.found?'':' — <span class="cov-no">not found</span>')+'</h2>';
       if(!g.found){ h += '<div class="empty">No target intervals for '+esc(g.name)+' in this panel.</div>'; continue; }
@@ -870,6 +928,7 @@ function render(d){
          Math.min(100,cov.pct)+'%"></div></div></div>';
     h += dlButtons();
     h += depthTable(d.sample_coverage, {title:'Sample read-depth coverage over captured region'});
+    h += referencePanel(d.sample_coverage);
     h += '<h2>Target intervals overlapping region</h2>' + rowsTable(d.rows);
     if(cov.gaps && cov.gaps.length){
       h += '<h2>Uncovered gaps</h2><div class="table-wrap"><table><thead><tr>'+
@@ -920,6 +979,7 @@ function render(d){
     ]);
     h += dlButtons();
     h += depthTable(d.sample_coverage, {title:'Sample read-depth coverage over targets'});
+    h += referencePanel(d.sample_coverage);
     h += '<h2>Target intervals</h2>' + rowsTable(d.rows);
   }
   out.innerHTML = h;
