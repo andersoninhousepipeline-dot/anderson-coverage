@@ -33,10 +33,6 @@ git clone https://github.com/andersoninhousepipeline-dot/anderson-coverage.git
 cd anderson-coverage
 pip install -r requirements.txt
 
-# Configure the private sample → BAM mapping (kept out of git):
-cp samples_local.example.py samples_local.py
-#   then edit samples_local.py with the real BAM filenames
-
 # Point the app at your data (defaults shown):
 export BED_DIR=/data/bed            # folder of *.bed panels
 export BAM_DIR=/data/bed/reference  # folder of indexed reference *.bam
@@ -65,14 +61,29 @@ transcript search needs an annotated 4th column.
 
 ## Reference samples
 
-Sample labels are defined in `samples.py` (`SAMPLE_DEFS`); the label → BAM
-filename mapping lives in **`samples_local.py`**, which is git-ignored so sample
-identifiers are never committed. To add a sample: drop an indexed `*.bam` (+`.bai`)
-into `BAM_DIR`, add a `(label, slug)` to `SAMPLE_DEFS` and a `slug: filename`
-entry to `samples_local.py`, then `./restart.sh`.
+Reference samples live as **one sub-directory per type** under `BAM_DIR`, each
+holding one or more replicate BAMs (indexed `.bai` required). No BAMs or sample
+identifiers are committed to the repo — only the directory layout matters:
 
-Sample read-depth is **mandatory** (always computed for all reference samples) so
-every report shows both BED coverage and real sample coverage.
+```
+BAM_DIR/
+  Normal/      *.bam   # +.bai
+  Male-Inf/    *.bam
+  Female-Inf/  *.bam
+  AF/          *.bam
+  POC/         *.bam
+```
+
+The dir → label/slug mapping is in `samples.py` (`DIR_MAP`). For each query, every
+replicate's depth is computed in parallel (process pool) and the replicates of a
+type are aggregated to one row: **mean of replicate means (± SD)**, mean median,
+worst-case min, and mean %≥threshold. Replicate count shows as `n=…`.
+
+**To add samples:** drop more indexed `*.bam` into the matching type folder and
+`./restart.sh`. To add a new type, create a folder and add a `DIR_MAP` row.
+
+Sample read-depth is **mandatory** (always computed for all types) so every report
+shows both BED coverage and real sample coverage.
 
 ## API
 
@@ -101,7 +112,6 @@ behind gunicorn/uwsgi.
 
 - `app.py` — Flask server + single-page UI (Anderson-branded)
 - `coverage_index.py` — in-memory BED index (bisect overlap + token map)
-- `samples.py` — reference sample registry + pysam depth engine
-- `samples_local.example.py` — template for the private `samples_local.py`
+- `samples.py` — reference sample-type registry (directory groups) + pysam depth engine
 - `static/anderson.png` — brand logo (header + PDF)
 - `start.sh` / `stop.sh` / `status.sh` / `restart.sh` / `server.conf`

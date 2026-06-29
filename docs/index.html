@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Anderson Coverage Checker</title>
+<style>
+  :root { --blue:#005FA0; --orange:#F08020; }
+  * { box-sizing: border-box; }
+  body { font-family: Arial, Helvetica, sans-serif; color:#222; background:#f5f6f8; margin:0; }
+  .header { background:#fff; border-bottom:3px solid var(--orange); box-shadow:0 1px 4px rgba(0,0,0,.06); }
+  .header .inner { max-width:960px; margin:0 auto; display:flex; align-items:center; gap:22px; padding:14px 18px; }
+  .header img { height:52px; }
+  .header .t { border-left:2px solid #e2e6ec; padding-left:22px; }
+  .header h1 { margin:0; font-size:20px; color:var(--blue); }
+  .header .sub { font-size:12px; color:#6a7180; margin-top:4px; }
+  .wrap { max-width:960px; margin:0 auto; padding:26px 18px 60px; }
+  h2 { font-size:12px; text-transform:uppercase; letter-spacing:.6px; color:var(--blue);
+       border-bottom:1.5px solid var(--orange); padding-bottom:5px; margin:28px 0 14px; }
+  .lead { font-size:15px; line-height:1.6; color:#333; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px; }
+  .card { background:#fff; border:1px solid #d0d5de; border-radius:8px; padding:16px 18px; }
+  .card h3 { margin:0 0 6px; font-size:14px; color:var(--blue); }
+  .card p { margin:0; font-size:13px; color:#555; line-height:1.5; }
+  code { background:#eef1f6; padding:2px 6px; border-radius:4px; font-size:13px; }
+  table { border-collapse:collapse; width:100%; background:#fff; border:1px solid #d0d5de; border-radius:8px; overflow:hidden; }
+  th { background:var(--blue); color:#fff; text-align:left; padding:8px 10px; font-size:12px; }
+  td { padding:7px 10px; font-size:13px; border-top:1px solid #e4e8f0; }
+  td code { font-size:12px; }
+  .note { background:#fff7e6; border:1px solid #f0d9a8; color:#7a5a12; padding:12px 16px;
+          border-radius:8px; font-size:13px; margin-top:16px; }
+  .foot { margin-top:34px; font-size:12px; color:#888; }
+  a { color:var(--blue); }
+</style>
+</head>
+<body>
+<div class="header"><div class="inner">
+  <img src="anderson.png" alt="Anderson Diagnostics &amp; Labs">
+  <div class="t"><h1>Coverage Checker</h1>
+    <div class="sub">Panel (BED) coverage + sample read-depth coverage · GRCh38 / hg38</div></div>
+</div></div>
+
+<div class="wrap">
+  <p class="lead">An internal web tool to check NGS capture-panel coverage and real
+  sample sequencing depth — by gene, multiple genes, chromosome region, transcript,
+  or rs ID — with one-click branded PDF reports.</p>
+
+  <h2>What you can query</h2>
+  <table>
+    <tr><th>Type</th><th>Example</th></tr>
+    <tr><td>Gene</td><td><code>BRCA1</code></td></tr>
+    <tr><td>Multiple genes</td><td><code>BRCA1, BRCA2, TP53</code> → <code>listed gene coverage.pdf</code></td></tr>
+    <tr><td>Chromosome region</td><td><code>chr17:43044295-43125483</code></td></tr>
+    <tr><td>Transcript</td><td><code>NM_007294.4</code> (also NR/XM/XR/ENST/ENSG)</td></tr>
+    <tr><td>rs ID</td><td><code>rs6265</code> (resolved via Ensembl REST)</td></tr>
+  </table>
+
+  <h2>What each report shows</h2>
+  <div class="grid">
+    <div class="card"><h3>Panel coverage</h3><p>Whether the gene / region / variant
+      is in the capture design, targeted bp, and uncovered gaps — across any
+      selected BED panel.</p></div>
+    <div class="card"><h3>Sample read-depth</h3><p>Real coverage from reference BAMs:
+      mean ± SD, median, min, and % of target bases ≥ 1× / 10× / 20× / 30× / 50× / 100×.</p></div>
+    <div class="card"><h3>Reference types</h3><p>Normal, Male Infertility, Female
+      Infertility, AF and POC — each aggregated across replicate samples, plus an
+      Overall Coverage row.</p></div>
+    <div class="card"><h3>Reports</h3><p>Branded, print-to-PDF reports named after
+      the query; downloadable matched intervals as BED.</p></div>
+  </div>
+
+  <div class="note"><b>This is a static information page.</b> The Coverage Checker
+  is a Flask application that runs on the lab server (it reads BED panels and BAM
+  files locally). Open it at your internal URL, e.g.
+  <code>http://&lt;lab-server&gt;:8100</code>. See the repository
+  <a href="https://github.com/andersoninhousepipeline-dot/anderson-coverage">README</a>
+  for setup and server controls.</div>
+
+  <div class="foot">© Anderson Diagnostics &amp; Labs — internal bioinformatics tool.</div>
+</div>
+</body>
+</html>

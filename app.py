@@ -700,7 +700,8 @@ async function loadSamples(){
     THRESHOLDS = d.thresholds || THRESHOLDS;
     const box = $('#samplelist');
     if(!d.samples || !d.samples.length){ box.innerHTML = '<span style="color:#888">No reference samples configured.</span>'; return; }
-    box.innerHTML = d.samples.map(s => '<span class="schip on">'+esc(s.label)+'</span>').join('');
+    box.innerHTML = d.samples.map(s => '<span class="schip on">'+esc(s.label)+
+      (s.n?' <span style="opacity:.7;font-weight:normal">n='+s.n+'</span>':'')+'</span>').join('');
   } catch(e){ $('#samplelist').innerHTML = '<span style="color:#888">samples unavailable</span>'; }
 }
 loadSamples();

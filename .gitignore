@@ -1,6 +1,3 @@
-# Private sample → BAM filename mapping (keeps sample identifiers out of the repo)
-samples_local.py
-
 # Runtime / generated
 server.log
 server.pid
