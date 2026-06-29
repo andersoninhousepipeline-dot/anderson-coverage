@@ -170,10 +170,6 @@ tr.combined td { background: #fff4e8; border-top: 2px solid var(--orange); font-
       <div class="hint" style="margin-top:6px">
         <b>Panel:</b> switch the dropdown above to check the same query against a different panel.
       </div>
-      <div class="samplebox">
-        <div class="samplebox-h">Sample read-depth coverage is included automatically with every search:</div>
-        <div id="samplelist" class="samplelist"><span style="color:#888">loading…</span></div>
-      </div>
     </div>
     <div id="out"></div>
   </div>
@@ -912,12 +908,6 @@ async function init() {
     opt.textContent = pname + ' (' + panel.n_rows.toLocaleString() + ' intervals)';
     sel.appendChild(opt);
 
-    // Sample chips
-    const box = document.getElementById('samplelist');
-    box.innerHTML = sampleTypes.length
-      ? sampleTypes.map(st => '<span class="schip on">'+esc(st.label)+
-          (st.n ? ' <span style="opacity:.7;font-weight:normal">n='+st.n+'</span>' : '')+'</span>').join('')
-      : '<span style="color:#888">No reference samples configured.</span>';
 
     setLPct(100);
 
