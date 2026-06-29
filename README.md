@@ -81,6 +81,22 @@ every report shows both BED coverage and real sample coverage.
 - `GET /api/panels` · `GET /api/samples`
 - `POST /api/upload` (multipart `bed`) → register an uploaded panel
 
+## Security / deployment notes
+
+This is an internal lab tool. For a trusted LAN it runs as-is. For shared or
+untrusted networks:
+
+- `HOST=127.0.0.1 ./start.sh` — bind to localhost only (default is `0.0.0.0`
+  for LAN access) and front it with an authenticating reverse proxy.
+- `COVERAGE_UPLOAD_TOKEN=<secret>` — require header `X-Upload-Token` on the
+  `/api/upload` write endpoint (unset = open).
+- `MAX_UPLOAD_MB=512` — cap upload size.
+
+rs-ID input is validated (`rs\d+`) and URL-encoded before the Ensembl call; the
+rs-ID cache is size-bounded; API errors are logged server-side and return a
+generic message. The dev server is fine for internal use; for heavier load run
+behind gunicorn/uwsgi.
+
 ## Files
 
 - `app.py` — Flask server + single-page UI (Anderson-branded)

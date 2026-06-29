@@ -15,6 +15,7 @@ import re
 import time
 import datetime
 import requests
+from urllib.parse import quote
 from flask import Flask, request, jsonify, render_template_string, Response
 
 from coverage_index import Panel, merge_intervals, tokenize, _STOP_TOKENS
@@ -84,6 +85,11 @@ ENSEMBL = "https://rest.ensembl.org"
 GENOME_BUILD = "GRCh38 / hg38"
 
 app = Flask(__name__)
+# Cap upload size (panels can be ~90 MB; default 512 MB).
+app.config["MAX_CONTENT_LENGTH"] = int(os.environ.get("MAX_UPLOAD_MB", "512")) * 1024 * 1024
+# Optional shared secret to gate the write endpoint on untrusted networks.
+# When unset (default), upload is open — suitable for a trusted LAN deployment.
+UPLOAD_TOKEN = os.environ.get("COVERAGE_UPLOAD_TOKEN", "")
 
 
 # ── panel access ──────────────────────────────────────────────────────────────
@@ -97,12 +103,19 @@ def get_panel(name=None):
 
 # ── rs-id resolution (Ensembl REST) ───────────────────────────────────────────
 _rsid_cache = {}
+_RSID_CACHE_MAX = 2000
 
 def resolve_rsid(rsid):
     rsid = rsid.strip()
+    # Validate before it reaches the outbound HTTP request / cache key.
+    if not re.match(r"^rs\d+$", rsid, re.I):
+        return {"error": "Invalid rs ID (expected e.g. rs6265)."}
     if rsid in _rsid_cache:
         return _rsid_cache[rsid]
-    url = f"{ENSEMBL}/variation/human/{rsid}?content-type=application/json"
+    # Bound the cache so an attacker cannot grow it without limit.
+    if len(_rsid_cache) >= _RSID_CACHE_MAX:
+        _rsid_cache.clear()
+    url = f"{ENSEMBL}/variation/human/{quote(rsid, safe='')}?content-type=application/json"
     try:
         r = requests.get(url, timeout=15)
         if r.status_code != 200:
@@ -410,6 +423,9 @@ def index():
 
 @app.route("/api/upload", methods=["POST"])
 def api_upload():
+    # Optional auth: when COVERAGE_UPLOAD_TOKEN is set, require it on writes.
+    if UPLOAD_TOKEN and request.headers.get("X-Upload-Token", "") != UPLOAD_TOKEN:
+        return jsonify({"ok": False, "error": "Upload not authorized."}), 403
     f = request.files.get("bed")
     if not f or not f.filename:
         return jsonify({"ok": False, "error": "No file received."})
@@ -469,8 +485,9 @@ def api_query():
         return jsonify({"ok": False, "error": "Empty query."})
     try:
         res = do_query(q, qtype, panel_name, sample_accs)
-    except Exception as e:
-        return jsonify({"ok": False, "error": str(e)})
+    except Exception:
+        app.logger.exception("query failed for q=%r type=%r panel=%r", q, qtype, panel_name)
+        return jsonify({"ok": False, "error": "Query failed; see server log."})
     return jsonify(res)
 
 
@@ -480,18 +497,22 @@ def api_bed():
     q = request.args.get("q", "").strip()
     qtype = request.args.get("type", "auto")
     panel_name = request.args.get("panel", "")
-    res = do_query(q, qtype, panel_name)
-    rows = []
-    if res.get("rows"):
-        rows = res["rows"]
-    elif res.get("hits"):
-        for h in res["hits"]:
-            rows.extend(h.get("rows", []))
-    elif res.get("type") == "genes":
-        panel = get_panel(panel_name)
-        for tok in [t for t in re.split(r"[,\s]+", q) if t]:
-            idxs = panel.rows_for_token(tok) or panel.free_text(tok)
-            rows.extend(rows_payload(panel, idxs))
+    try:
+        res = do_query(q, qtype, panel_name)
+        rows = []
+        if res.get("rows"):
+            rows = res["rows"]
+        elif res.get("hits"):
+            for h in res["hits"]:
+                rows.extend(h.get("rows", []))
+        elif res.get("type") == "genes":
+            panel = get_panel(panel_name)
+            for tok in [t for t in re.split(r"[,\s]+", q) if t]:
+                idxs = panel.rows_for_token(tok) or panel.free_text(tok)
+                rows.extend(rows_payload(panel, idxs))
+    except Exception:
+        app.logger.exception("bed export failed for q=%r", q)
+        return Response("# export failed; see server log\n", mimetype="text/plain")
     lines = ["\t".join([r["chrom"], str(r["start"]), str(r["end"]), r["annot"]])
              for r in rows]
     body = "\n".join(lines) + ("\n" if lines else "")
@@ -754,7 +775,7 @@ function depthTable(cov, opts){
   if(valid.length > 1){
     const avg = a => Math.round(a.reduce((x,y)=>x+y,0)/a.length*10)/10;
     const tb = valid[0].total_bases;
-    h += '<tr class="combined"><td class="gene">Combined (avg of '+valid.length+')</td>'+
+    h += '<tr class="combined"><td class="gene">Overall Coverage</td>'+
       '<td class="mono">'+fmt(tb)+'</td>'+
       '<td class="mono"><b>'+avg(valid.map(c=>c.mean))+'x</b></td>'+
       '<td class="mono">'+avg(valid.map(c=>c.median))+'x</td>'+
@@ -764,7 +785,7 @@ function depthTable(cov, opts){
   }
   h += '</tbody></table></div><div class="legend">% of target bases at or above each depth. '+
        'Green &ge;95% · amber &ge;80% · red &lt;80%. Reads: duplicates/secondary/QC-fail excluded. '+
-       '<b>Combined</b> = average across all reference samples.</div>';
+       '<b>Overall Coverage</b> = average across all reference samples.</div>';
   return h;
 }
 function depthAtVariant(cov){
@@ -931,4 +952,7 @@ if __name__ == "__main__":
               f"({PANELS[PANEL_ORDER[0]].n_rows:,} intervals)")
     except Exception as e:
         print("WARN:", e)
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)), debug=False)
+    # HOST defaults to 0.0.0.0 (LAN access, by design). Set HOST=127.0.0.1 to
+    # restrict to localhost when running behind a reverse proxy / on shared hosts.
+    app.run(host=os.environ.get("HOST", "0.0.0.0"),
+            port=int(os.environ.get("PORT", 8080)), debug=False)
