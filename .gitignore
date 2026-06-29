@@ -1,0 +1,21 @@
+# Private sample → BAM filename mapping (keeps sample identifiers out of the repo)
+samples_local.py
+
+# Runtime / generated
+server.log
+server.pid
+uploads/
+__pycache__/
+*.pyc
+
+# Data files should never be committed (they live on the server, not in git)
+*.bam
+*.bai
+*.bed
+*.vcf
+*.vcf.gz
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/

@@ -1,0 +1,91 @@
+# Anderson Coverage Checker
+
+A web tool to check **panel/capture coverage** and **sample read-depth coverage**
+for NGS target (BED) panels — by gene, multiple genes, chromosome region,
+transcript (NM/NR/XM/XR/ENST/ENSG), or rs ID — with one-click PDF reports.
+
+Two layers of coverage in every report:
+
+1. **Panel coverage** — is the gene / region / variant in the capture design, and
+   how much of it (from the BED target intervals).
+2. **Sample read-depth coverage** *(always included)* — real sequencing depth from
+   reference BAM files over those targets: mean / median / min depth and
+   **% of target bases ≥ 1× / 10× / 20× / 30× / 50× / 100×**, plus a **Combined**
+   (average across all reference samples) row.
+
+## Query types (auto-detected)
+
+| Type         | Example                          |
+|--------------|----------------------------------|
+| Gene         | `BRCA1`                          |
+| Multiple genes | `BRCA1, BRCA2, TP53`           |
+| Chr region   | `chr17:43044295-43125483`        |
+| Transcript   | `NM_007294.4`                    |
+| rs ID        | `rs6265` (resolved via Ensembl REST) |
+
+PDF filename follows the query: `BRCA1 coverage.pdf`, `listed gene coverage.pdf`,
+`rs6265 coverage.pdf`, etc. (Print / Save PDF button).
+
+## Setup
+
+```bash
+git clone https://github.com/andersoninhousepipeline-dot/anderson-coverage.git
+cd anderson-coverage
+pip install -r requirements.txt
+
+# Configure the private sample → BAM mapping (kept out of git):
+cp samples_local.example.py samples_local.py
+#   then edit samples_local.py with the real BAM filenames
+
+# Point the app at your data (defaults shown):
+export BED_DIR=/data/bed            # folder of *.bed panels
+export BAM_DIR=/data/bed/reference  # folder of indexed reference *.bam
+
+./start.sh                          # http://<host>:8100   (PORT=8101 ./start.sh to change)
+```
+
+Requires Python 3 with Flask, requests, pysam, numpy (see `requirements.txt`).
+rs-ID lookups call `rest.ensembl.org` (needs internet). BAMs must be indexed (`.bai`).
+
+## Server control
+
+```bash
+./start.sh    ./status.sh    ./restart.sh    ./stop.sh
+```
+
+`status.sh` reports RUNNING/STOPPED, uptime, memory, HTTP health and panel count.
+
+## Panels (BED files)
+
+Every `*.bed` under `BED_DIR` is auto-discovered and selectable in the dropdown.
+Mixed vendor annotation styles are supported (Twist `Gene;NM_…`, Roche
+`gene_symbol=…`, Sophia `Gene:NM:exon`, comma / tab / plain). Users can also
+**upload a BED** in the UI. Region and rs-ID queries work on any BED; gene /
+transcript search needs an annotated 4th column.
+
+## Reference samples
+
+Sample labels are defined in `samples.py` (`SAMPLE_DEFS`); the label → BAM
+filename mapping lives in **`samples_local.py`**, which is git-ignored so sample
+identifiers are never committed. To add a sample: drop an indexed `*.bam` (+`.bai`)
+into `BAM_DIR`, add a `(label, slug)` to `SAMPLE_DEFS` and a `slug: filename`
+entry to `samples_local.py`, then `./restart.sh`.
+
+Sample read-depth is **mandatory** (always computed for all reference samples) so
+every report shows both BED coverage and real sample coverage.
+
+## API
+
+- `GET /api/query?q=<term>&panel=<name>` → JSON report (BED + sample depth)
+- `GET /api/bed?q=<term>&panel=<name>`   → matched intervals as BED
+- `GET /api/panels` · `GET /api/samples`
+- `POST /api/upload` (multipart `bed`) → register an uploaded panel
+
+## Files
+
+- `app.py` — Flask server + single-page UI (Anderson-branded)
+- `coverage_index.py` — in-memory BED index (bisect overlap + token map)
+- `samples.py` — reference sample registry + pysam depth engine
+- `samples_local.example.py` — template for the private `samples_local.py`
+- `static/anderson.png` — brand logo (header + PDF)
+- `start.sh` / `stop.sh` / `status.sh` / `restart.sh` / `server.conf`
