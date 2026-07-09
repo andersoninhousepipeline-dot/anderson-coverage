@@ -18,7 +18,7 @@ import requests
 from urllib.parse import quote
 from flask import Flask, request, jsonify, render_template_string, Response
 
-from coverage_index import Panel, merge_intervals, tokenize, _STOP_TOKENS
+from coverage_index import Panel, merge_intervals, tokenize, _STOP_TOKENS, resolve_alias
 import samples as samplemod
 import coverage_db
 
@@ -257,16 +257,24 @@ def do_query(q, qtype, panel_name, sample_accs=None):
         all_idxs = []
         for name in names:
             idxs = panel.rows_for_token(name)
+            alias = None
             if not idxs:
                 idxs = panel.free_text(name)
+            elif name.upper() not in panel.token_map:
+                alias = resolve_alias(name)
             rows = rows_payload(panel, idxs)
             all_idxs.extend(idxs)
-            genes.append({
+            gene_entry = {
                 "name": name,
                 "found": bool(rows),
                 "summary": summarize_rows(rows),
                 "sample_coverage": compute_sample_coverage(panel, idxs, sample_accs),
-            })
+            }
+            if alias:
+                gene_entry["alias_of"] = alias
+                result["messages"].append(
+                    f"{name} is a legacy gene symbol — shown as its current name {alias}.")
+            genes.append(gene_entry)
         all_ivs = [(panel.r_chrom[i], panel.r_start[i], panel.r_end[i]) for i in all_idxs]
         result.update({
             "genes": genes,
@@ -353,6 +361,11 @@ def do_query(q, qtype, panel_name, sample_accs=None):
         if used_fallback:
             result["messages"].append(
                 "No exact gene/transcript token matched — showing substring matches.")
+    elif q.upper() not in panel.token_map:
+        alias = resolve_alias(q)
+        if alias:
+            result["messages"].append(
+                f"{q} is a legacy gene symbol — shown as its current name {alias}.")
     rows = rows_payload(panel, idxs)
     result.update({
         "rows": rows,

@@ -40,6 +40,38 @@ _STOP_TOKENS = {
     "regionidxkey", "no_annotation", "target", "covered", "intron",
 }
 
+# Deprecated / legacy HGNC gene symbols -> the current symbol used in our BED
+# annotations. Panels are annotated with current HGNC symbols, so a lookup for
+# an older alias (e.g. MRE11A, the pre-2013 name for MRE11) would otherwise
+# report "not found" even though the gene is fully covered under its new name.
+GENE_ALIASES = {
+    "MRE11A": "MRE11",     # HGNC renamed MRE11A -> MRE11 in 2013; ATLD/HNGS1 gene
+    "ATLD": "MRE11",
+    "FANCD1": "BRCA2",
+    "FANCS": "BRCA1",
+    "FANCJ": "BRIP1",
+    "BACH1": "BRIP1",
+    "FANCN": "PALB2",
+    "FANCO": "RAD51C",
+    "RAD51L2": "RAD51C",
+    "RAD51L3": "RAD51D",
+    "ALK3": "BMPR1A",
+    "MYH": "MUTYH",
+    "NBS1": "NBN",
+    "LKB1": "STK11",
+    "MMAC1": "PTEN",
+    "TEP1": "PTEN",
+    "DPC4": "SMAD4",
+    "MADH4": "SMAD4",
+    "GTBP": "MSH6",
+    "TACSTD1": "EPCAM",
+}
+
+
+def resolve_alias(token):
+    """Map a legacy/deprecated gene symbol to its current HGNC symbol, if known."""
+    return GENE_ALIASES.get(token.upper())
+
 
 def tokenize(annot):
     """Split a BED annotation into candidate gene / transcript tokens."""
@@ -141,7 +173,12 @@ class Panel:
         return out
 
     def rows_for_token(self, token):
-        return self.token_map.get(token.upper(), [])
+        idxs = self.token_map.get(token.upper(), [])
+        if not idxs:
+            alias = resolve_alias(token)
+            if alias:
+                idxs = self.token_map.get(alias.upper(), [])
+        return idxs
 
     def free_text(self, needle, limit=2000):
         """Substring scan over annotations (case-insensitive). For ClinID / partial."""
