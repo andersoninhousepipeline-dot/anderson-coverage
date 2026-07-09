@@ -220,6 +220,35 @@ const CASE_TYPES   = [
 const ABS_FLOOR    = 20;
 const ENSEMBL      = 'https://rest.ensembl.org';
 
+// Deprecated / legacy HGNC gene symbols -> the current symbol used in our BED
+// annotations. Panels are annotated with current HGNC symbols, so a lookup for
+// an older alias (e.g. MRE11A, the pre-2013 name for MRE11) would otherwise
+// report "not found" even though the gene is fully covered under its new name.
+const GENE_ALIASES = new Map(Object.entries({
+  MRE11A: 'MRE11',     // HGNC renamed MRE11A -> MRE11 in 2013; ATLD/HNGS1 gene
+  ATLD: 'MRE11',
+  FANCD1: 'BRCA2',
+  FANCS: 'BRCA1',
+  FANCJ: 'BRIP1',
+  BACH1: 'BRIP1',
+  FANCN: 'PALB2',
+  FANCO: 'RAD51C',
+  RAD51L2: 'RAD51C',
+  RAD51L3: 'RAD51D',
+  ALK3: 'BMPR1A',
+  MYH: 'MUTYH',
+  NBS1: 'NBN',
+  LKB1: 'STK11',
+  MMAC1: 'PTEN',
+  TEP1: 'PTEN',
+  DPC4: 'SMAD4',
+  MADH4: 'SMAD4',
+  GTBP: 'MSH6',
+  TACSTD1: 'EPCAM',
+}));
+
+function resolveAlias(token) { return GENE_ALIASES.get(token.toUpperCase()) || null; }
+
 // ── Global state ──────────────────────────────────────────────────────────
 let sqlDb       = null;
 let panel       = null;
@@ -316,7 +345,14 @@ function panelOverlap(chrom, qstart, qend) {
   return out;
 }
 
-function rowsForToken(token)  { return panel.token_map.get(token.toUpperCase()) || []; }
+function rowsForToken(token) {
+  let idxs = panel.token_map.get(token.toUpperCase()) || [];
+  if (!idxs.length) {
+    const alias = resolveAlias(token);
+    if (alias) idxs = panel.token_map.get(alias.toUpperCase()) || [];
+  }
+  return idxs;
+}
 
 function freeText(needle, limit = 2000) {
   needle = needle.toUpperCase();
@@ -496,11 +532,21 @@ async function doQuery(q, qtype) {
     const genes = [], all_idxs = [];
     for (const name of names) {
       let idxs = rowsForToken(name);
-      if (!idxs.length) idxs = freeText(name);
+      let alias = null;
+      if (!idxs.length) {
+        idxs = freeText(name);
+      } else if (!panel.token_map.has(name.toUpperCase())) {
+        alias = resolveAlias(name);
+      }
       const rows = rowsPayload(idxs);
       all_idxs.push(...idxs);
-      genes.push({ name, found: !!rows.length, summary: summarizeRows(rows),
-                   sample_coverage: computeSampleCoverage(idxs) });
+      const geneEntry = { name, found: !!rows.length, summary: summarizeRows(rows),
+                          sample_coverage: computeSampleCoverage(idxs) };
+      if (alias) {
+        geneEntry.alias_of = alias;
+        result.messages.push(`${name} is a legacy gene symbol — shown as its current name ${alias}.`);
+      }
+      genes.push(geneEntry);
     }
     result.genes    = genes;
     result.n_genes  = names.length;
@@ -563,6 +609,9 @@ async function doQuery(q, qtype) {
     idxs = freeText(q);
     used_fallback = !!idxs.length;
     if (used_fallback) result.messages.push('No exact gene/transcript token matched — showing substring matches.');
+  } else if (!panel.token_map.has(q.toUpperCase())) {
+    const alias = resolveAlias(q);
+    if (alias) result.messages.push(`${q} is a legacy gene symbol — shown as its current name ${alias}.`);
   }
   const rows = rowsPayload(idxs);
   result.rows             = rows;
