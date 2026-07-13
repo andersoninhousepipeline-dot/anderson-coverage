@@ -250,6 +250,16 @@ const GENE_ALIASES = new Map(Object.entries({
 function resolveAlias(token) { return GENE_ALIASES.get(token.toUpperCase()) || null; }
 
 // ── Global state ──────────────────────────────────────────────────────────
+// Panel DBs are known upfront but fetched lazily — only the default is loaded
+// at startup, and switching the dropdown fetches the other on first use.
+const PANEL_FILES = [
+  { file: 'coverage.db',     label: 'Twist Spikein v2.0.2 (re-annotated)' },
+  { file: 'coverage_cnv.db', label: 'Spike-in CNV backbone panel' },
+];
+let SQLModule    = null;             // sql.js module, loaded once
+const loadedDbs  = new Map();        // file -> {sqlDb, panel, sampleTypes, thresholds, dbMeta}
+let activeFile   = null;
+
 let sqlDb       = null;
 let panel       = null;
 let sampleTypes = [];      // [{slug, label, n, ord}]
@@ -1023,70 +1033,130 @@ async function run() {
   }
 }
 
+// ── Panel DB loading (shared by startup and lazy dropdown switch) ─────────
+async function loadPanelDb(file, hooks) {
+  hooks = hooks || {};
+  const { onStatus, onDetail, onPct } = hooks;
+
+  onStatus && onStatus('Loading ' + file + '…');
+  const response = await fetch('./' + file);
+  if (!response.ok) throw new Error(`Failed to fetch ${file}: HTTP ${response.status}`);
+  const contentLength = +response.headers.get('Content-Length') || 0;
+  const reader = response.body.getReader();
+  const chunks = []; let received = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value); received += value.length;
+    onPct && onPct(contentLength ? 5 + 60 * received / contentLength : 30);
+    onDetail && onDetail(contentLength
+      ? `${(received/1e6).toFixed(1)} / ${(contentLength/1e6).toFixed(1)} MB`
+      : `${(received/1e6).toFixed(1)} MB received`);
+  }
+  onPct && onPct(65); onStatus && onStatus('Opening database…'); onDetail && onDetail('');
+  const buf = new Uint8Array(received);
+  let boff = 0; for (const ch of chunks) { buf.set(ch, boff); boff += ch.length; }
+  const db = new SQLModule.Database(buf);
+
+  const meta = {};
+  const metaRows = db.exec("SELECT key, value FROM meta")[0]?.values || [];
+  for (const [k, v] of metaRows) meta[k] = v;
+  const thr = JSON.parse(meta.thresholds || '[1,10,20,30,50,100]');
+  const stRows = db.exec("SELECT slug, label, n, ord FROM sample_type ORDER BY ord")[0]?.values || [];
+  const st = stRows.map(([slug, label, n, ord]) => ({ slug, label, n, ord }));
+
+  // Decompress annotation pack (Python zlib.compress → pako.inflate)
+  onStatus && onStatus('Building panel index…'); onPct && onPct(70);
+  const annotBlob    = db.exec("SELECT data FROM annot_pack")[0].values[0][0];
+  const decompressed = pako.inflate(annotBlob);   // handles zlib format (RFC 1950)
+  const annots       = new TextDecoder().decode(decompressed).split('\n');
+
+  const coordRows = db.exec("SELECT chrom, start, end FROM intervals ORDER BY id")[0]?.values || [];
+  onPct && onPct(80); onDetail && onDetail(`Indexing ${coordRows.length.toLocaleString()} intervals…`);
+  const pnl = buildPanelIndex(coordRows, annots);
+  onPct && onPct(95); onDetail && onDetail('');
+
+  return { sqlDb: db, panel: pnl, sampleTypes: st, thresholds: thr, dbMeta: meta };
+}
+
+function applyActiveDb(file, obj) {
+  activeFile  = file;
+  sqlDb       = obj.sqlDb;
+  panel       = obj.panel;
+  sampleTypes = obj.sampleTypes;
+  thresholds  = obj.thresholds;
+  dbMeta      = obj.dbMeta;
+  lastResult  = null;
+}
+
+async function onPanelChange() {
+  const sel  = document.getElementById('panel-sel');
+  const file = sel.value;
+  if (file === activeFile) return;
+
+  const cached = loadedDbs.get(file);
+  if (cached) {
+    applyActiveDb(file, cached);
+    if ($('#q').value.trim()) run(); else showGallery();
+    return;
+  }
+
+  sel.disabled = true;
+  $('#out').innerHTML = '<div style="padding:20px"><span class="spinner"></span>' +
+    '<span style="margin-left:8px;color:var(--blue)">Loading panel database…</span></div>';
+  try {
+    const obj = await loadPanelDb(file);
+    loadedDbs.set(file, obj);
+    applyActiveDb(file, obj);
+    const opt = [...sel.options].find(o => o.value === file);
+    if (opt) opt.textContent = (dbMeta.panel_name || opt.textContent) +
+      ' (' + panel.n_rows.toLocaleString() + ' intervals)';
+    if ($('#q').value.trim()) run(); else showGallery();
+  } catch (e) {
+    $('#out').innerHTML = '<div class="err">Failed to load panel database: ' + esc(e.message) + '</div>';
+    sel.value = activeFile;
+  } finally {
+    sel.disabled = false;
+  }
+}
+
 // ── Initialisation ────────────────────────────────────────────────────────
 async function init() {
   try {
     // 1. Init sql.js (loads WASM from CDN)
     setStatus('Initialising SQL engine…');
     setLPct(5);
-    const SQL = await initSqlJs({
+    SQLModule = await initSqlJs({
       locateFile: f => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.12.0/${f}`,
     });
 
-    // 2. Fetch coverage.db with progress bar
-    setStatus('Loading coverage database…');
-    const response = await fetch('./coverage.db');
-    if (!response.ok) throw new Error(`Failed to fetch coverage.db: HTTP ${response.status}`);
-    const contentLength = +response.headers.get('Content-Length') || 0;
-    const reader = response.body.getReader();
-    const chunks = []; let received = 0;
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      chunks.push(value); received += value.length;
-      setLPct(contentLength ? 5 + 60 * received / contentLength : 30);
-      setDetail(contentLength
-        ? `${(received/1e6).toFixed(1)} / ${(contentLength/1e6).toFixed(1)} MB`
-        : `${(received/1e6).toFixed(1)} MB received`);
-    }
-    setLPct(65); setStatus('Opening database…'); setDetail('');
-    const buf = new Uint8Array(received);
-    let boff = 0; for (const ch of chunks) { buf.set(ch, boff); boff += ch.length; }
-    sqlDb = new SQL.Database(buf);
+    // 2. Load the default panel DB with progress bar
+    const defaultFile = PANEL_FILES[0].file;
+    const obj = await loadPanelDb(defaultFile, {
+      onStatus: setStatus, onDetail: setDetail, onPct: setLPct,
+    });
+    loadedDbs.set(defaultFile, obj);
+    applyActiveDb(defaultFile, obj);
 
-    // 3. Read metadata
-    const metaRows = sqlDb.exec("SELECT key, value FROM meta")[0]?.values || [];
-    for (const [k, v] of metaRows) dbMeta[k] = v;
-    thresholds  = JSON.parse(dbMeta.thresholds || '[1,10,20,30,50,100]');
-    const stRows = sqlDb.exec("SELECT slug, label, n, ord FROM sample_type ORDER BY ord")[0]?.values || [];
-    sampleTypes  = stRows.map(([slug, label, n, ord]) => ({ slug, label, n, ord }));
-
-    // 4. Decompress annotation pack (Python zlib.compress → pako.inflate)
-    setStatus('Building panel index…'); setLPct(70);
-    const annotBlob   = sqlDb.exec("SELECT data FROM annot_pack")[0].values[0][0];
-    const decompressed = pako.inflate(annotBlob);   // handles zlib format (RFC 1950)
-    const annots       = new TextDecoder().decode(decompressed).split('\n');
-
-    // 5. Load intervals and build in-memory index
-    const coordRows = sqlDb.exec("SELECT chrom, start, end FROM intervals ORDER BY id")[0]?.values || [];
-    setLPct(80); setDetail(`Indexing ${coordRows.length.toLocaleString()} intervals…`);
-    panel = buildPanelIndex(coordRows, annots);
-    setLPct(95); setDetail('');
-
-    // 6. Show app
+    // 3. Show app
     document.getElementById('loading').style.display = 'none';
     document.getElementById('app').style.display = '';
     document.getElementById('hdr-date').textContent  = 'Generated: ' + new Date().toLocaleString();
     document.getElementById('hdr-build').textContent = dbMeta.genome_build || 'GRCh38 / hg38';
 
-    // Panel dropdown (single panel from DB)
-    const sel  = document.getElementById('panel-sel');
-    const pname = dbMeta.panel_name || 'Reference panel';
-    const opt  = document.createElement('option');
-    opt.value  = pname;
-    opt.textContent = pname + ' (' + panel.n_rows.toLocaleString() + ' intervals)';
-    sel.appendChild(opt);
-
+    // Panel dropdown — all known panels listed upfront; non-default ones are
+    // fetched lazily the first time they're selected (see onPanelChange).
+    const sel = document.getElementById('panel-sel');
+    for (const pf of PANEL_FILES) {
+      const opt = document.createElement('option');
+      opt.value = pf.file;
+      opt.textContent = pf.file === defaultFile
+        ? (dbMeta.panel_name || pf.label) + ' (' + panel.n_rows.toLocaleString() + ' intervals)'
+        : pf.label;
+      sel.appendChild(opt);
+    }
+    sel.value = defaultFile;
+    sel.addEventListener('change', onPanelChange);
 
     setLPct(100);
 

@@ -12,6 +12,7 @@ Run:   python3 app.py        then open http://localhost:8080
 
 import os
 import re
+import glob
 import time
 import datetime
 import requests
@@ -24,10 +25,13 @@ import coverage_db
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 BED_DIR = os.environ.get("BED_DIR", "/data/bed")
-# Precomputed coverage DB — when present the app reports sample coverage from it
-# (no BAM files needed). Build with build/build_db.py.
+# Precomputed coverage DBs — when present the app reports sample coverage from
+# them (no BAM files needed), one panel per DB. Build with build/build_db.py
+# (Twist Spikein) / build/build_db_cnv.py (spike-in CNV backbone panel).
+# COVERAGE_DB overrides/adds the primary one; any other *.db dropped in HERE
+# is picked up automatically.
 DB_PATH = os.environ.get("COVERAGE_DB", os.path.join(HERE, "coverage.db"))
-COVDB = None   # set in setup_panels()
+COVDBS = []    # list of CoverageDB, set in setup_panels()
 
 # Friendly names for the two primary panels; everything else is auto-discovered.
 PREFERRED = {
@@ -76,18 +80,35 @@ def discover_panels():
         register_panel(rel, full)
 
 
+def discover_db_paths():
+    """Primary DB (COVERAGE_DB, default coverage.db) first, then any other
+    *.db file found alongside it (e.g. coverage_cnv.db)."""
+    paths = []
+    if os.path.exists(DB_PATH):
+        paths.append(DB_PATH)
+    for p in sorted(glob.glob(os.path.join(HERE, "*.db"))):
+        if p not in paths:
+            paths.append(p)
+    return paths
+
+
 def setup_panels():
-    """Discover BED panels, then make the precomputed-DB panel (if any) the
-    default reference panel so coverage interval-ids line up with the DB."""
-    global COVDB
+    """Discover BED panels, then make each precomputed-DB panel (if any) take
+    the place of its BED-loaded duplicate so coverage interval-ids line up
+    with that DB."""
+    global COVDBS
     discover_panels()
-    COVDB = coverage_db.open_db(DB_PATH)
-    if COVDB is not None:
-        name = COVDB.panel_name
+    COVDBS = []
+    for path in discover_db_paths():
+        db = coverage_db.open_db(path)
+        if db is None:
+            continue
+        name = db.panel_name
         if name in PANELS:                     # drop the BED-loaded duplicate
             PANEL_ORDER.remove(name); del PANELS[name]
-        PANELS[name] = COVDB.panel             # already loaded; ids match cov table
-        PANEL_ORDER.insert(0, name)
+        PANELS[name] = db.panel                # already loaded; ids match cov table
+        PANEL_ORDER.insert(len(COVDBS), name)
+        COVDBS.append(db)
 
 
 setup_panels()
@@ -377,14 +398,22 @@ def do_query(q, qtype, panel_name, sample_accs=None):
     return result
 
 
+def covdb_for_panel(panel):
+    for db in COVDBS:
+        if db.panel is panel:
+            return db
+    return None
+
+
 def compute_sample_coverage(panel, idxs, sample_accs):
     """Per-sample depth over panel interval ids. Uses the precomputed DB when
     present (no BAMs), else computes live from BAMs."""
     if not sample_accs or not idxs:
         return None
     try:
-        if COVDB is not None and panel is COVDB.panel:
-            return COVDB.coverage(sample_accs, idxs)
+        covdb = covdb_for_panel(panel)
+        if covdb is not None:
+            return covdb.coverage(sample_accs, idxs)
         # BAM mode: build coords from the panel rows
         accs = [a for a in sample_accs if a in samplemod.SAMPLES]
         if not accs:
@@ -442,13 +471,13 @@ def index():
 
 
 def sample_list_and_thresholds():
-    if COVDB is not None:
-        return COVDB.list_samples(), COVDB.thresholds
+    if COVDBS:
+        return COVDBS[0].list_samples(), COVDBS[0].thresholds
     return samplemod.list_samples(), samplemod.THRESHOLDS
 
 
 def sample_order():
-    return COVDB.sample_order if COVDB is not None else list(samplemod.SAMPLE_ORDER)
+    return COVDBS[0].sample_order if COVDBS else list(samplemod.SAMPLE_ORDER)
 
 
 @app.route("/api/samples")
