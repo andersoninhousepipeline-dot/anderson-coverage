@@ -25,7 +25,9 @@ if command -v ss >/dev/null 2>&1 && ss -ltn 2>/dev/null | grep -q ":$PORT[[:spac
 fi
 
 echo "Starting Coverage Checker on $HOST:$PORT ..."
-PORT="$PORT" nohup "$PYTHON" "$APP" >> "$LOG" 2>&1 &
+# Launch with the app's full path (not just "$APP") so stop.sh's stray-process
+# fallback can match this process specifically, instead of any "app.py" on the box.
+PORT="$PORT" nohup "$PYTHON" "$DIR/$APP" >> "$LOG" 2>&1 &
 PID=$!
 echo "$PID" > "$PIDFILE"
 

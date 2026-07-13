@@ -28,8 +28,9 @@ if [[ -f "$PIDFILE" ]]; then
   rm -f "$PIDFILE"
 fi
 
-# 2) Fallback: catch any stray app.py processes on our port
-strays=$(pgrep -f "$PYTHON .*$APP" 2>/dev/null || true)
+# 2) Fallback: catch any stray instances of THIS app (matched by full path,
+# so we never touch another app.py belonging to a different project/user).
+strays=$(pgrep -f "$PYTHON $DIR/$APP" 2>/dev/null || true)
 if [[ -n "$strays" ]]; then
   echo "Stopping stray process(es): $strays"
   kill $strays 2>/dev/null || true

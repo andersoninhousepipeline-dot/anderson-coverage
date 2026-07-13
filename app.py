@@ -617,6 +617,8 @@ PAGE = r"""<!DOCTYPE html>
   .pill { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: bold; }
   .pill.yes { background: #e3f3e9; color: #1a6033; }
   .pill.no  { background: #fbe6e6; color: #8b1a1a; }
+  .panel-tag { display: inline-block; background: #eaf1fa; color: #005FA0; border: 1px solid #c9dcf0;
+       border-radius: 6px; padding: 4px 10px; font-size: 11px; font-weight: bold; margin-bottom: 10px; }
   .msg { background: #fff7e6; border: 1px solid #f0d9a8; color: #7a5a12;
        padding: 10px 14px; border-radius: 6px; font-size: 12px; margin-top: 12px; }
   .err { background: #fbe6e6; border: 1px solid #e3b5b5; color: #8b1a1a;
@@ -887,7 +889,7 @@ function dlButtons(){
 
 function render(d){
   if(!d.ok){ out.innerHTML = '<div class="err">'+esc(d.error||'Query failed.')+'</div>'; return; }
-  let h = '';
+  let h = '<div class="panel-tag">Panel: '+esc(d.panel||'—')+'</div>';
   for(const m of (d.messages||[])) h += '<div class="msg">'+esc(m)+'</div>';
 
   if(d.type === 'genes'){
