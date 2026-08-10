@@ -807,7 +807,9 @@ function depthTable(cov, opts){
     for(const t of THRESHOLDS) h += dcell(avg(valid.map(c=>c.pct[String(t)]||0)));
     h += '</tr>';
   }
-  h += '</tbody></table></div><div class="legend">% of target bases at or above each depth. '+
+  h += '</tbody></table></div><div class="legend">% of target bases at or above each depth, '+
+       'computed only over bases already in the panel design — not the gene\'s full length '+
+       '(see <b>Coding region covered</b> above, where shown, for that). '+
        'Green &ge;95% · amber &ge;80% · red &lt;80%. Reads: duplicates/secondary/QC-fail excluded. '+
        '<b>Overall Coverage</b> = average across all reference samples.</div>';
   return h;
