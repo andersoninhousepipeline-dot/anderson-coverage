@@ -41,6 +41,16 @@ class CoverageDB:
                       cur.execute("SELECT slug,label,n,ord FROM sample_type ORDER BY ord")]
         self._ord = {t["slug"]: t["ord"] for t in self.types}
         self._meta_n = {t["slug"]: t["n"] for t in self.types}
+        # Optional per-gene "% of coding region covered" lookup. Not present
+        # in every DB (e.g. the CNV backbone DB has no gene annotation), so
+        # load defensively.
+        self.gene_pct = {}
+        has_ref = cur.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='gene_ref_coverage'"
+        ).fetchone()
+        if has_ref:
+            self.gene_pct = dict(cur.execute(
+                "SELECT gene, pct_coding_covered FROM gene_ref_coverage"))
         # Build the in-memory panel index from the DB intervals (id == row order).
         # Full annotation is restored losslessly from the compressed pack.
         (blob,) = cur.execute("SELECT data FROM annot_pack").fetchone()

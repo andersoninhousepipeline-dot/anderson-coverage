@@ -100,9 +100,9 @@ tbody td { padding: 7px 10px; font-size: 11px; vertical-align: top; border-right
 .mono { font-family: monospace; font-size: 10.5px; color: #444; }
 .cov-no { font-weight: bold; color: #8b1a1a; }
 .depthwrap { background: #fff; border: 1px solid #d0d5de; border-radius: 8px; overflow: auto; margin-top: 12px; }
-td.d-hi { color: #1a6033; font-weight: bold; }
-td.d-mid { color: #9a6a00; font-weight: bold; }
-td.d-lo { color: #8b1a1a; font-weight: bold; }
+.d-hi { color: #1a6033; font-weight: bold; }
+.d-mid { color: #9a6a00; font-weight: bold; }
+.d-lo { color: #8b1a1a; font-weight: bold; }
 .legend { font-size: 10px; color: #777; margin-top: 6px; }
 tr.combined td { background: #fff4e8; border-top: 2px solid var(--orange); font-weight: bold; }
 .pill { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: bold; }
@@ -267,6 +267,7 @@ let panel       = null;
 let sampleTypes = [];      // [{slug, label, n, ord}]
 let thresholds  = [1,10,20,30,50,100];
 let dbMeta      = {};
+let genePct     = {};      // UPPER gene -> % of coding region covered (optional)
 let rsidCache   = new Map();
 let REPORT_NAME = 'coverage';
 let lastResult  = null;
@@ -553,7 +554,8 @@ async function doQuery(q, qtype) {
       const rows = rowsPayload(idxs);
       all_idxs.push(...idxs);
       const geneEntry = { name, found: !!rows.length, summary: summarizeRows(rows),
-                          sample_coverage: computeSampleCoverage(idxs) };
+                          sample_coverage: computeSampleCoverage(idxs),
+                          coding_pct: codingPct(alias || name) };
       if (alias) {
         geneEntry.alias_of = alias;
         result.messages.push(`${name} is a legacy gene symbol — shown as its current name ${alias}.`);
@@ -617,12 +619,13 @@ async function doQuery(q, qtype) {
   // ── Gene / transcript ──
   let idxs = rowsForToken(q);
   let used_fallback = false;
+  let alias = null;
   if (!idxs.length) {
     idxs = freeText(q);
     used_fallback = !!idxs.length;
     if (used_fallback) result.messages.push('No exact gene/transcript token matched — showing substring matches.');
   } else if (!panel.token_map.has(q.toUpperCase())) {
-    const alias = resolveAlias(q);
+    alias = resolveAlias(q);
     if (alias) result.messages.push(`${q} is a legacy gene symbol — shown as its current name ${alias}.`);
   }
   const rows = rowsPayload(idxs);
@@ -631,7 +634,17 @@ async function doQuery(q, qtype) {
   result.fallback         = used_fallback;
   result.found            = !!rows.length;
   result.sample_coverage  = computeSampleCoverage(idxs);
+  result.coding_pct       = codingPct(alias || q);
   return result;
+}
+
+function codingPct(name) {
+  let pct = genePct[name.toUpperCase()];
+  if (pct == null) {
+    const alias = resolveAlias(name);
+    if (alias) pct = genePct[alias.toUpperCase()];
+  }
+  return pct == null ? null : pct;
 }
 
 // ── Render helpers ────────────────────────────────────────────────────────
@@ -657,6 +670,12 @@ function dcell(pct) {
   if (pct == null) return '<td>—</td>';
   const cls = pct >= 95 ? 'd-hi' : pct >= 80 ? 'd-mid' : 'd-lo';
   return `<td class="${cls}">${pct}%</td>`;
+}
+
+function codingPctBadge(pct) {
+  if (pct == null) return '';
+  const cls = pct >= 95 ? 'd-hi' : pct >= 80 ? 'd-mid' : 'd-lo';
+  return ` · <span class="${cls}">${pct}% coding region covered</span>`;
 }
 
 function depthTable(cov, opts) {
@@ -827,7 +846,7 @@ function render(d) {
       if (!g.found) { h += '<div class="empty">No target intervals for '+esc(g.name)+' in this panel.</div>'; continue; }
       const s = g.summary;
       h += '<div class="empty" style="padding:4px 0"><b>'+s.intervals+'</b> intervals · <b>'+
-           fmt(s.targeted_bp)+'</b> targeted bp · '+esc(s.chroms.join(', '))+'</div>';
+           fmt(s.targeted_bp)+'</b> targeted bp · '+esc(s.chroms.join(', '))+codingPctBadge(g.coding_pct)+'</div>';
       h += depthTable(g.sample_coverage, { title: 'Read-depth coverage — '+g.name });
       h += referencePanel(g.sample_coverage);
     }
@@ -893,12 +912,17 @@ function render(d) {
       h += '<div class="err">No target intervals found for <b>'+esc(d.query)+'</b> in this panel.</div>';
       out.innerHTML = h; return;
     }
-    h += sumBar([
+    const geneCells = [
       { val: s.intervals, lbl: 'Target intervals' },
       { val: fmt(s.targeted_bp), lbl: 'Targeted bases (bp)', cls: 'val-green' },
       { val: esc(s.chroms.join(', ')), lbl: 'Chromosome' },
       { val: s.span_start!=null ? fmt(s.span_end - s.span_start) : '—', lbl: 'Genomic span (bp)' },
-    ]);
+    ];
+    if (d.coding_pct != null) {
+      geneCells.push({ val: d.coding_pct+'%', lbl: 'Coding region covered',
+        cls: d.coding_pct>=95?'val-green':(d.coding_pct<80?'val-red':'val-total') });
+    }
+    h += sumBar(geneCells);
     h += dlButtons();
     h += depthTable(d.sample_coverage, { title: 'Sample read-depth coverage over targets' });
     h += referencePanel(d.sample_coverage);
@@ -1076,9 +1100,19 @@ async function loadPanelDb(file, hooks) {
   const coordRows = db.exec("SELECT chrom, start, end FROM intervals ORDER BY id")[0]?.values || [];
   onPct && onPct(80); onDetail && onDetail(`Indexing ${coordRows.length.toLocaleString()} intervals…`);
   const pnl = buildPanelIndex(coordRows, annots);
+
+  // Optional per-gene "% of coding region covered" lookup — not present in
+  // every DB (e.g. the CNV backbone DB has no gene annotation).
+  let gpct = {};
+  const hasGeneRef = db.exec(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name='gene_ref_coverage'")[0]?.values || [];
+  if (hasGeneRef.length) {
+    const gRows = db.exec("SELECT gene, pct_coding_covered FROM gene_ref_coverage")[0]?.values || [];
+    for (const [g, p] of gRows) gpct[g] = p;
+  }
   onPct && onPct(95); onDetail && onDetail('');
 
-  return { sqlDb: db, panel: pnl, sampleTypes: st, thresholds: thr, dbMeta: meta };
+  return { sqlDb: db, panel: pnl, sampleTypes: st, thresholds: thr, dbMeta: meta, genePct: gpct };
 }
 
 function applyActiveDb(file, obj) {
@@ -1088,6 +1122,7 @@ function applyActiveDb(file, obj) {
   sampleTypes = obj.sampleTypes;
   thresholds  = obj.thresholds;
   dbMeta      = obj.dbMeta;
+  genePct     = obj.genePct || {};
   lastResult  = null;
 }
 

@@ -290,6 +290,7 @@ def do_query(q, qtype, panel_name, sample_accs=None):
                 "found": bool(rows),
                 "summary": summarize_rows(rows),
                 "sample_coverage": compute_sample_coverage(panel, idxs, sample_accs),
+                "coding_pct": gene_coding_pct(panel, alias or name),
             }
             if alias:
                 gene_entry["alias_of"] = alias
@@ -376,6 +377,7 @@ def do_query(q, qtype, panel_name, sample_accs=None):
     # gene or transcript (token lookup), with free-text fallback
     idxs = panel.rows_for_token(q)
     used_fallback = False
+    alias = None
     if not idxs:
         idxs = panel.free_text(q)
         used_fallback = bool(idxs)
@@ -394,6 +396,7 @@ def do_query(q, qtype, panel_name, sample_accs=None):
         "fallback": used_fallback,
         "found": bool(rows),
         "sample_coverage": compute_sample_coverage(panel, idxs, sample_accs),
+        "coding_pct": gene_coding_pct(panel, alias or q),
     })
     return result
 
@@ -403,6 +406,19 @@ def covdb_for_panel(panel):
         if db.panel is panel:
             return db
     return None
+
+
+def gene_coding_pct(panel, name):
+    """Look up the tool's own per-gene coding-region-coverage percentage."""
+    cdb = covdb_for_panel(panel)
+    if not cdb or not cdb.gene_pct:
+        return None
+    pct = cdb.gene_pct.get(name.upper())
+    if pct is None:
+        alias = resolve_alias(name)
+        if alias:
+            pct = cdb.gene_pct.get(alias.upper())
+    return pct
 
 
 def compute_sample_coverage(panel, idxs, sample_accs):
@@ -583,8 +599,8 @@ PAGE = r"""<!DOCTYPE html>
   .schip input { cursor: pointer; }
   .schip.on { background: #eaf3ec; border-color: #2a7a47; color: #1a6033; font-weight: bold; }
   .depthwrap { background:#fff; border:1px solid #d0d5de; border-radius:8px; overflow:auto; margin-top:12px; }
-  td.d-hi { color:#1a6033; font-weight:bold; } td.d-mid { color:#9a6a00; font-weight:bold; }
-  td.d-lo { color:#8b1a1a; font-weight:bold; }
+  .d-hi { color:#1a6033; font-weight:bold; } .d-mid { color:#9a6a00; font-weight:bold; }
+  .d-lo { color:#8b1a1a; font-weight:bold; }
   .legend { font-size:10px; color:#777; margin-top:6px; }
   tr.combined td { background:#fff4e8; border-top:2px solid #F08020; font-weight:bold; }
   .hint { font-size: 11px; color: #6a7180; margin-top: 8px; }
@@ -750,6 +766,11 @@ function dcell(pct){
   const cls = pct>=95?'d-hi':(pct>=80?'d-mid':'d-lo');
   return '<td class="'+cls+'">'+pct+'%</td>';
 }
+function codingPctBadge(pct){
+  if(pct==null) return '';
+  const cls = pct>=95?'d-hi':(pct>=80?'d-mid':'d-lo');
+  return ' · <span class="'+cls+'">'+pct+'% coding region covered</span>';
+}
 function depthTable(cov, opts){
   opts = opts || {};
   if(!cov || !cov.length) return '';
@@ -910,7 +931,7 @@ function render(d){
       const s = g.summary;
       h += '<div class="empty" style="padding:4px 0">'+
            '<b>'+s.intervals+'</b> intervals · <b>'+fmt(s.targeted_bp)+'</b> targeted bp · '+
-           esc(s.chroms.join(', '))+'</div>';
+           esc(s.chroms.join(', '))+codingPctBadge(g.coding_pct)+'</div>';
       h += depthTable(g.sample_coverage, {title:'Read-depth coverage — '+g.name});
     }
     out.innerHTML = h; return;
@@ -973,12 +994,17 @@ function render(d){
            '</b> in this panel.</div>';
       out.innerHTML = h; return;
     }
-    h += sumBar([
+    const geneCells = [
       {val: s.intervals, lbl:'Target intervals'},
       {val: fmt(s.targeted_bp), lbl:'Targeted bases (bp)', cls:'val-green'},
       {val: esc(s.chroms.join(', ')), lbl:'Chromosome'},
       {val: s.span_start!=null? fmt(s.span_end - s.span_start):'—', lbl:'Genomic span (bp)'},
-    ]);
+    ];
+    if(d.coding_pct!=null){
+      geneCells.push({val: d.coding_pct+'%', lbl:'Coding region covered',
+        cls: d.coding_pct>=95?'val-green':(d.coding_pct<80?'val-red':'val-total')});
+    }
+    h += sumBar(geneCells);
     h += dlButtons();
     h += depthTable(d.sample_coverage, {title:'Sample read-depth coverage over targets'});
     h += referencePanel(d.sample_coverage);
